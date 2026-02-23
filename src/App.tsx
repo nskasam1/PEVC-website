@@ -14,6 +14,8 @@ import Login from "./pages/Login";
 import Profile from "./pages/Profile";
 import Apply from "./pages/Apply";
 import AdminRecruiting from "./pages/AdminRecruiting";
+import AdminContent from "./pages/AdminContent";
+import Onboarding from "./pages/Onboarding";
 import Portal from "./pages/Portal";
 import NotFound from "./pages/NotFound";
 
@@ -37,6 +39,8 @@ const App = () => (
             <Route path="/profile" element={<Profile />} />
             <Route path="/apply" element={<Apply />} />
             <Route path="/admin/recruiting" element={<AdminRecruiting />} />
+            <Route path="/admin/content" element={<AdminContent />} />
+            <Route path="/onboarding" element={<Onboarding />} />
             <Route path="/portal" element={<Portal />} />
             <Route path="*" element={<NotFound />} />
           </Routes>

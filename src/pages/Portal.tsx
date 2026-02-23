@@ -3,7 +3,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Navigate } from "react-router-dom";
 import PageWrapper from "@/components/PageWrapper";
 import { toast } from "@/hooks/use-toast";
-import { CheckCircle, Circle, Send, Calendar, Mail, ClipboardList } from "lucide-react";
+import { CheckCircle, Circle, Send, Calendar, Mail, ClipboardList, Plus, X } from "lucide-react";
 import { format } from "date-fns";
 
 // ─── Mock Data ───────────────────────────────────────────────
@@ -24,8 +24,57 @@ const INITIAL_TASKS: Task[] = [
 
 const MEMBERS = ["Member User", "Analyst A", "Analyst B"];
 const PROJECTS = ["Acme Corp Due Diligence", "TechStart Evaluation", "Series B Pipeline"];
+const MOCK_CLIENTS = ["Acme Corp", "TechStart Inc.", "GreenVentures LLC"];
 
 interface ChatMsg { from: string; text: string; time: string; }
+
+// ─── Proxy Client Request Modal ──────────────────────────────
+const ProxyModal = ({ open, onClose }: { open: boolean; onClose: () => void }) => {
+  const [client, setClient] = useState(MOCK_CLIENTS[0]);
+  const [deliverable, setDeliverable] = useState("");
+  const [assignee, setAssignee] = useState(MEMBERS[0]);
+
+  if (!open) return null;
+
+  const submit = () => {
+    if (!deliverable.trim()) return;
+    toast({ title: "Client Request Logged", description: `Task "${deliverable}" created for ${client}, assigned to ${assignee}.` });
+    setDeliverable("");
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm" onClick={onClose}>
+      <div className="bg-card border border-border rounded-lg w-full max-w-md mx-4 p-6" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="text-lg font-bold text-foreground">Create Task on Behalf of Client</h3>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground"><X size={18} /></button>
+        </div>
+        <div className="space-y-4">
+          <div>
+            <label className="text-xs uppercase tracking-widest text-muted-foreground mb-1 block">Client</label>
+            <select value={client} onChange={(e) => setClient(e.target.value)} className="w-full bg-card border border-border rounded-md px-3 py-2 text-sm text-foreground focus:ring-1 focus:ring-primary focus:outline-none">
+              {MOCK_CLIENTS.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-xs uppercase tracking-widest text-muted-foreground mb-1 block">Requested Deliverable</label>
+            <textarea value={deliverable} onChange={(e) => setDeliverable(e.target.value)} rows={3} className="w-full bg-card border border-border rounded-md p-3 text-sm text-foreground focus:ring-1 focus:ring-primary focus:outline-none resize-none" placeholder="Describe the deliverable..." />
+          </div>
+          <div>
+            <label className="text-xs uppercase tracking-widest text-muted-foreground mb-1 block">Assign to Member</label>
+            <select value={assignee} onChange={(e) => setAssignee(e.target.value)} className="w-full bg-card border border-border rounded-md px-3 py-2 text-sm text-foreground focus:ring-1 focus:ring-primary focus:outline-none">
+              {MEMBERS.map((m) => <option key={m} value={m}>{m}</option>)}
+            </select>
+          </div>
+          <button onClick={submit} className="w-full bg-primary text-primary-foreground py-2 rounded-md text-sm font-semibold hover:bg-primary/90 transition-colors">
+            Log Request
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 // ─── PM View ─────────────────────────────────────────────────
 const PMView = () => {
@@ -34,6 +83,7 @@ const PMView = () => {
   const [newAssignee, setNewAssignee] = useState(MEMBERS[0]);
   const [newDeadline, setNewDeadline] = useState("");
   const [newProject, setNewProject] = useState(PROJECTS[0]);
+  const [proxyOpen, setProxyOpen] = useState(false);
 
   const addTask = () => {
     if (!newTitle.trim()) return;
@@ -50,7 +100,7 @@ const PMView = () => {
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 relative">
       <div>
         <h2 className="text-lg font-bold text-foreground mb-4 flex items-center gap-2">
           <ClipboardList size={18} className="text-primary" /> Your Projects
@@ -111,6 +161,17 @@ const PMView = () => {
           </div>
         ))}
       </div>
+
+      {/* FAB */}
+      <button
+        onClick={() => setProxyOpen(true)}
+        className="fixed bottom-8 right-8 w-14 h-14 bg-primary text-primary-foreground rounded-full shadow-lg flex items-center justify-center hover:bg-primary/90 transition-colors z-40"
+        title="Log Client Request"
+      >
+        <Plus size={24} />
+      </button>
+
+      <ProxyModal open={proxyOpen} onClose={() => setProxyOpen(false)} />
     </div>
   );
 };
