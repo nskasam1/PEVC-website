@@ -179,7 +179,7 @@ const ProjectDetail = () => {
   const isPM = user.role === "PM" && project.pmId === user.id;
   const isMember = user.role === "Member" && project.memberIds.includes(user.id);
   const canManage = isAdmin || isPM;
-  const canUpdateStatus = canManage || isMember;
+  // Members can only update status on their own deliverables (checked per-deliverable below)
 
   const deliverables = getProjectDeliverables(project.id);
   const memberDels = isMember && !canManage ? deliverables.filter((d) => d.assigneeId === user.id) : deliverables;
@@ -264,7 +264,7 @@ const ProjectDetail = () => {
                       <p className="text-xs text-muted-foreground mt-0.5">{d.assigneeName} · Due {d.deadline}</p>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
-                      <StatusBadge status={d.status} canEdit={canUpdateStatus} onUpdate={(s) => {
+                      <StatusBadge status={d.status} canEdit={canManage || (isMember && d.assigneeId === user.id)} onUpdate={(s) => {
                         updateDeliverableStatus(d.id, s);
                         toast({ title: "Status Updated", description: `"${d.title}" → ${s.replace("_", " ")}` });
                       }} />
