@@ -291,13 +291,10 @@ const ClientView = () => {
 const Portal = () => {
   const { user, isAuthenticated } = useAuth();
   const allowedRoles = ["PM", "Member", "Client"] as const;
-  const [activeTab, setActiveTab] = useState<string>(user?.role || "PM");
 
   if (!isAuthenticated || !user || !allowedRoles.includes(user.role as any)) {
     return <Navigate to="/login" replace />;
   }
-
-  const tabs = [...allowedRoles];
 
   return (
     <PageWrapper>
@@ -308,26 +305,9 @@ const Portal = () => {
             Logged in as <span className="text-primary font-semibold">{user.role}</span>
           </p>
 
-          {/* Tabs */}
-          <div className="flex gap-1 border-b border-border mb-8">
-            {tabs.map((tab) => (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ${
-                  activeTab === tab
-                    ? "border-primary text-primary"
-                    : "border-transparent text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                {tab}
-              </button>
-            ))}
-          </div>
-
-          {activeTab === "PM" && <PMView />}
-          {activeTab === "Member" && <MemberView />}
-          {activeTab === "Client" && <ClientView />}
+          {user.role === "PM" && <PMView />}
+          {user.role === "Member" && <MemberView />}
+          {user.role === "Client" && <ClientView />}
         </div>
       </section>
     </PageWrapper>
