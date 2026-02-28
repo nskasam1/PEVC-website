@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Menu, X, Bell, LogIn, LogOut, User } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
-const navLinks = [
+const baseLinks = [
   { label: "Home", path: "/" },
   { label: "Portfolio", path: "/portfolio" },
   { label: "Team", path: "/team" },
@@ -24,6 +24,21 @@ const Navbar = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [bellOpen, setBellOpen] = useState(false);
   const { user, isAuthenticated, logout } = useAuth();
+
+  // Role-based nav links
+  const navLinks = [...baseLinks];
+  if (isAuthenticated && user) {
+    if (["Admin", "PM", "Member"].includes(user.role)) {
+      navLinks.push({ label: "My Projects", path: "/my-projects" });
+    }
+    if (["PM", "Member", "Client"].includes(user.role)) {
+      navLinks.push({ label: "Portal", path: "/portal" });
+    }
+    if (user.role === "Admin") {
+      navLinks.push({ label: "Recruiting", path: "/admin/recruiting" });
+      navLinks.push({ label: "CMS", path: "/admin/content" });
+    }
+  }
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 glass border-b border-border">
