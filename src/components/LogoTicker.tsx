@@ -6,12 +6,12 @@ const partners = [
 
 const LogoTicker = () => {
   return (
-    <div className="overflow-hidden py-12 border-y border-border bg-background">
+    <div className="overflow-hidden py-10 border-y border-border">
       <div className="animate-ticker flex whitespace-nowrap">
         {[...partners, ...partners].map((name, i) => (
           <div
             key={i}
-            className="mx-8 flex-shrink-0 text-muted-foreground text-lg font-semibold tracking-wide opacity-40 hover:opacity-100 hover:text-primary transition-all duration-300 cursor-default"
+            className="mx-8 flex-shrink-0 text-muted-foreground text-sm font-medium tracking-[0.15em] uppercase opacity-30 hover:opacity-80 hover:text-primary transition-all duration-300 cursor-default"
           >
             {name}
           </div>

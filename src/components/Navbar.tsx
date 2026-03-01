@@ -48,17 +48,15 @@ const Navbar = () => {
 
   const isHome = location.pathname === "/";
   const navBg = scrolled || !isHome
-    ? "bg-background backdrop-blur-md shadow-sm border-b border-border"
-    : "bg-background";
-  const textColor = scrolled || !isHome ? "text-foreground" : "text-white";
-  const mutedColor = scrolled || !isHome ? "text-muted-foreground" : "text-white/70";
+    ? "bg-background/80 backdrop-blur-md border-b border-border"
+    : "bg-transparent";
 
   return (
-    <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${navBg}`}>
+    <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${navBg}`}>
       <div className="container mx-auto flex items-center justify-between h-16 px-6">
         <Link to="/" className="flex items-center gap-2">
           <img
-            src="/images/PEVCLogo.png"
+            src="/images/TransparentPEVC.png"
             alt="PEVC Logo"
             className="h-9 transition-all duration-300"
           />
@@ -70,8 +68,8 @@ const Navbar = () => {
             <Link
               key={link.path}
               to={link.path}
-              className={`text-sm font-medium transition-colors hover:text-primary ${
-                location.pathname === link.path ? "text-primary" : mutedColor
+              className={`text-sm font-medium transition-colors duration-200 hover:text-primary ${
+                location.pathname === link.path ? "text-primary" : "text-white/70 hover:text-white"
               }`}
             >
               {link.label}
@@ -80,14 +78,14 @@ const Navbar = () => {
 
           {/* Bell */}
           <div className="relative">
-            <button onClick={() => setBellOpen(!bellOpen)} className={`${mutedColor} hover:text-primary transition-colors relative`}>
+            <button onClick={() => setBellOpen(!bellOpen)} className="text-white/70 hover:text-primary transition-colors relative">
               <Bell size={18} />
-              <span className="absolute -top-1 -right-1 w-2 h-2 bg-primary rounded-full" />
+              <span className="absolute -top-1 -right-1 w-1.5 h-1.5 bg-primary rounded-full" />
             </button>
             {bellOpen && (
-              <div className="absolute right-0 mt-2 w-72 bg-card border border-border rounded-lg shadow-lg z-50 overflow-hidden">
+              <div className="absolute right-0 mt-2 w-72 bg-card border border-border rounded-lg shadow-2xl z-50 overflow-hidden">
                 <div className="px-4 py-2 border-b border-border">
-                  <p className="text-xs font-bold uppercase tracking-widest text-foreground">Notifications</p>
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">Notifications</p>
                 </div>
                 {mockAlerts.map((a, i) => (
                   <div key={i} className="px-4 py-3 border-b border-border last:border-0 hover:bg-secondary/50 transition-colors">
@@ -100,22 +98,22 @@ const Navbar = () => {
 
           <Link
             to="/pitch"
-            className="bg-primary text-primary-foreground px-5 py-2 text-sm font-semibold rounded-md transition-transform hover:scale-[1.02]"
+            className="bg-primary text-primary-foreground px-5 py-2 text-sm font-semibold rounded-md transition-all hover:scale-[1.02] hover:shadow-lg hover:shadow-primary/20"
           >
             Pitch Us
           </Link>
 
           {isAuthenticated ? (
             <div className="flex items-center gap-3">
-              <Link to="/profile" className={`${mutedColor} hover:text-primary transition-colors`}>
+              <Link to="/profile" className="text-white/70 hover:text-primary transition-colors">
                 <User size={18} />
               </Link>
-              <button onClick={() => { logout(); navigate("/"); }} className={`${mutedColor} hover:text-primary transition-colors`}>
+              <button onClick={() => { logout(); navigate("/"); }} className="text-white/70 hover:text-primary transition-colors">
                 <LogOut size={18} />
               </button>
             </div>
           ) : (
-            <Link to="/login" className={`${mutedColor} hover:text-primary transition-colors`}>
+            <Link to="/login" className="text-white/70 hover:text-primary transition-colors">
               <LogIn size={18} />
             </Link>
           )}
@@ -123,7 +121,7 @@ const Navbar = () => {
 
         {/* Mobile toggle */}
         <button
-          className={`md:hidden ${textColor}`}
+          className="md:hidden text-white"
           onClick={() => setMobileOpen(!mobileOpen)}
         >
           {mobileOpen ? <X size={24} /> : <Menu size={24} />}
@@ -137,7 +135,7 @@ const Navbar = () => {
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
-            className="md:hidden bg-white border-b border-border"
+            className="md:hidden bg-card border-b border-border"
           >
             <div className="flex flex-col px-6 py-4 gap-4">
               {navLinks.map((link) => (
