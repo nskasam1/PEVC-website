@@ -85,7 +85,7 @@ const Index = () => {
 
           <div className="relative z-10 container mx-auto px-6 text-center">
             <motion.img
-              src="/images/TransparentPEVC.png"
+              src="/images/PEVCLogo.png"
               alt="PEVC Logo"
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -96,20 +96,11 @@ const Index = () => {
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.1 }}
-              className="text-5xl md:text-7xl font-black tracking-tight leading-[1.05] mb-6 text-white"
+              className="text-3xl md:text-5xl font-black tracking-tight leading-[1.15] mb-6 text-white"
             >
-              A Student-Run
-              <br />
-              <span className="text-primary">Early-Stage Fund</span>
+              Supporting OSU's relationship with the private equity and venture capital community
             </motion.h1>
-            <motion.p
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.2 }}
-              className="text-lg md:text-xl text-white/80 max-w-2xl mx-auto mb-10"
-            >
-              Investing in the next generation of tech-enabled companies. Sourcing, screening, and backing founders with conviction.
-            </motion.p>
+            {/* ...existing code... */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -222,7 +213,7 @@ const Index = () => {
         <footer className="border-t border-border py-12 bg-card">
           <div className="container mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-4">
             <div className="flex items-center gap-3">
-              <img src="/images/TransparentPEVC.png" alt="PEVC" className="h-6 brightness-0" />
+              <img src="/images/PEVCLogo.png" alt="PEVC" className="h-6 brightness-0" />
               <span className="text-sm text-muted-foreground">© 2025 PEVC. All rights reserved.</span>
             </div>
             <div className="flex gap-6">
