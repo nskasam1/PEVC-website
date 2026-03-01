@@ -51,6 +51,7 @@ export default {
           foreground: "hsl(var(--card-foreground))",
         },
         scarlet: "hsl(var(--scarlet))",
+        slate_accent: "hsl(var(--slate-accent))",
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",
           foreground: "hsl(var(--sidebar-foreground))",
