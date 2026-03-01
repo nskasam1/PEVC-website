@@ -85,12 +85,12 @@ const Index = () => {
 
           <div className="relative z-10 container mx-auto px-6 text-center">
             <motion.img
-              src="/images/TransparentPEVC.png"
+              src="/images/PEVCTransparent.png"
               alt="PEVC Logo"
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.6 }}
-              className="h-20 md:h-28 mx-auto mb-8"
+              className="h-32 md:h-44 mx-auto mb-10"
             />
             <motion.h1
               initial={{ opacity: 0, y: 30 }}
@@ -212,7 +212,7 @@ const Index = () => {
         <footer className="border-t border-border py-12">
           <div className="container mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-4">
             <div className="flex items-center gap-3">
-              <img src="/images/TransparentPEVC.png" alt="PEVC" className="h-6 opacity-60" />
+              <img src="/images/PEVCTransparent.png"  alt="PEVC" className="h-10 opacity-100" />
               <span className="text-sm text-muted-foreground">© 2025 PEVC. All rights reserved.</span>
             </div>
             <div className="flex gap-6">

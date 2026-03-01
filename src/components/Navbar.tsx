@@ -56,9 +56,9 @@ const Navbar = () => {
       <div className="container mx-auto flex items-center justify-between h-16 px-6">
         <Link to="/" className="flex items-center gap-2">
           <img
-            src="/images/TransparentPEVC.png"
+            src="/images/PEVCTransparent.png"
             alt="PEVC Logo"
-            className="h-9 transition-all duration-300"
+            className="h-16 md:h-20 transition-all duration-300"
           />
         </Link>
 
