@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Menu, X, Bell, LogIn, LogOut, User } from "lucide-react";
@@ -23,9 +23,15 @@ const Navbar = () => {
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [bellOpen, setBellOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
   const { user, isAuthenticated, logout } = useAuth();
 
-  // Role-based nav links
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 40);
+    window.addEventListener("scroll", onScroll);
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
   const navLinks = [...baseLinks];
   if (isAuthenticated && user) {
     if (["Admin", "PM", "Member"].includes(user.role)) {
@@ -40,11 +46,22 @@ const Navbar = () => {
     }
   }
 
+  const isHome = location.pathname === "/";
+  const navBg = scrolled || !isHome
+    ? "bg-white/95 backdrop-blur-md shadow-sm border-b border-border"
+    : "bg-transparent";
+  const textColor = scrolled || !isHome ? "text-foreground" : "text-white";
+  const mutedColor = scrolled || !isHome ? "text-muted-foreground" : "text-white/70";
+
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 glass border-b border-border">
+    <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${navBg}`}>
       <div className="container mx-auto flex items-center justify-between h-16 px-6">
-        <Link to="/" className="text-xl font-extrabold tracking-tight text-foreground">
-          PEVC
+        <Link to="/" className="flex items-center gap-2">
+          <img
+            src="/images/TransparentPEVC.png"
+            alt="PEVC Logo"
+            className={`h-9 transition-all duration-300 ${scrolled || !isHome ? "brightness-0" : ""}`}
+          />
         </Link>
 
         {/* Desktop */}
@@ -54,7 +71,7 @@ const Navbar = () => {
               key={link.path}
               to={link.path}
               className={`text-sm font-medium transition-colors hover:text-primary ${
-                location.pathname === link.path ? "text-primary" : "text-muted-foreground"
+                location.pathname === link.path ? "text-primary" : mutedColor
               }`}
             >
               {link.label}
@@ -63,7 +80,7 @@ const Navbar = () => {
 
           {/* Bell */}
           <div className="relative">
-            <button onClick={() => setBellOpen(!bellOpen)} className="text-muted-foreground hover:text-primary transition-colors relative">
+            <button onClick={() => setBellOpen(!bellOpen)} className={`${mutedColor} hover:text-primary transition-colors relative`}>
               <Bell size={18} />
               <span className="absolute -top-1 -right-1 w-2 h-2 bg-primary rounded-full" />
             </button>
@@ -90,15 +107,15 @@ const Navbar = () => {
 
           {isAuthenticated ? (
             <div className="flex items-center gap-3">
-              <Link to="/profile" className="text-muted-foreground hover:text-primary transition-colors">
+              <Link to="/profile" className={`${mutedColor} hover:text-primary transition-colors`}>
                 <User size={18} />
               </Link>
-              <button onClick={() => { logout(); navigate("/"); }} className="text-muted-foreground hover:text-primary transition-colors">
+              <button onClick={() => { logout(); navigate("/"); }} className={`${mutedColor} hover:text-primary transition-colors`}>
                 <LogOut size={18} />
               </button>
             </div>
           ) : (
-            <Link to="/login" className="text-muted-foreground hover:text-primary transition-colors">
+            <Link to="/login" className={`${mutedColor} hover:text-primary transition-colors`}>
               <LogIn size={18} />
             </Link>
           )}
@@ -106,7 +123,7 @@ const Navbar = () => {
 
         {/* Mobile toggle */}
         <button
-          className="md:hidden text-foreground"
+          className={`md:hidden ${textColor}`}
           onClick={() => setMobileOpen(!mobileOpen)}
         >
           {mobileOpen ? <X size={24} /> : <Menu size={24} />}
@@ -120,7 +137,7 @@ const Navbar = () => {
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
-            className="md:hidden glass border-b border-border"
+            className="md:hidden bg-white border-b border-border"
           >
             <div className="flex flex-col px-6 py-4 gap-4">
               {navLinks.map((link) => (

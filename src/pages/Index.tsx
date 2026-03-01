@@ -60,7 +60,7 @@ const whyFounders = [
 
 const stagger = {
   hidden: {},
-  visible: { transition: { staggerChildren: 0.1 } },
+  visible: { transition: { staggerChildren: 0.12 } },
 };
 
 const fadeUp = {
@@ -71,65 +71,84 @@ const fadeUp = {
 const Index = () => {
   return (
     <PageWrapper>
-      <div className="min-h-screen pt-16">
-        {/* Hero */}
-        <section className="container mx-auto px-6 py-24 md:py-36 text-center">
-          <motion.h1
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-            className="text-5xl md:text-7xl font-black tracking-tight leading-[1.05] mb-6 text-foreground"
-          >
-            A Student-Run
-            <br />
-            <span className="text-primary">Early-Stage Fund</span>
-          </motion.h1>
-          <motion.p
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.15 }}
-            className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-10"
-          >
-            Investing in the next generation of tech-enabled companies. Sourcing, screening, and backing founders with conviction.
-          </motion.p>
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.3 }}
-            className="flex flex-col sm:flex-row gap-4 justify-center"
-          >
-            <Link
-              to="/pitch"
-              className="bg-primary text-primary-foreground px-8 py-3 rounded-md font-semibold text-sm transition-transform hover:scale-[1.02]"
-            >
-              Apply for Funding
-            </Link>
-            <Link
-              to="/portfolio"
-              className="border border-border text-foreground px-8 py-3 rounded-md font-semibold text-sm transition-all hover:border-primary hover:text-primary flex items-center justify-center gap-2"
-            >
-              View Portfolio <ArrowRight size={16} />
-            </Link>
-          </motion.div>
+      <div className="min-h-screen">
+        {/* Hero with background image */}
+        <section className="relative min-h-[90vh] flex items-center justify-center overflow-hidden">
+          {/* Background image */}
+          <div
+            className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+            style={{ backgroundImage: "url('/images/cbus.jpg')" }}
+          />
+          {/* Dark + scarlet overlay */}
+          <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/40 to-black/70" />
+          <div className="absolute inset-0 bg-primary/10" />
 
-          {/* Stats */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.6, delay: 0.5 }}
-            className="grid grid-cols-3 gap-8 max-w-lg mx-auto mt-20"
-          >
-            {stats.map((stat) => (
-              <div key={stat.label} className="text-center">
-                <div className="text-3xl md:text-4xl font-extrabold text-foreground">
-                  <CountUp end={stat.value} suffix={stat.suffix} />
+          <div className="relative z-10 container mx-auto px-6 text-center">
+            <motion.img
+              src="/images/TransparentPEVC.png"
+              alt="PEVC Logo"
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.6 }}
+              className="h-20 md:h-28 mx-auto mb-8"
+            />
+            <motion.h1
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.1 }}
+              className="text-5xl md:text-7xl font-black tracking-tight leading-[1.05] mb-6 text-white"
+            >
+              A Student-Run
+              <br />
+              <span className="text-primary">Early-Stage Fund</span>
+            </motion.h1>
+            <motion.p
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.2 }}
+              className="text-lg md:text-xl text-white/80 max-w-2xl mx-auto mb-10"
+            >
+              Investing in the next generation of tech-enabled companies. Sourcing, screening, and backing founders with conviction.
+            </motion.p>
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.35 }}
+              className="flex flex-col sm:flex-row gap-4 justify-center"
+            >
+              <Link
+                to="/pitch"
+                className="bg-primary text-primary-foreground px-8 py-3 rounded-md font-semibold text-sm transition-all hover:scale-[1.02] hover:shadow-lg"
+              >
+                Apply for Funding
+              </Link>
+              <Link
+                to="/portfolio"
+                className="border border-white/30 text-white px-8 py-3 rounded-md font-semibold text-sm transition-all hover:border-white hover:bg-white/10 flex items-center justify-center gap-2"
+              >
+                View Portfolio <ArrowRight size={16} />
+              </Link>
+            </motion.div>
+
+            {/* Stats */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.6, delay: 0.55 }}
+              className="grid grid-cols-3 gap-8 max-w-lg mx-auto mt-20"
+            >
+              {stats.map((stat) => (
+                <div key={stat.label} className="text-center">
+                  <div className="text-3xl md:text-4xl font-extrabold text-white">
+                    <CountUp end={stat.value} suffix={stat.suffix} />
+                  </div>
+                  <div className="text-xs md:text-sm text-white/60 mt-1 uppercase tracking-widest">
+                    {stat.label}
+                  </div>
                 </div>
-                <div className="text-xs md:text-sm text-muted-foreground mt-1 uppercase tracking-widest">
-                  {stat.label}
-                </div>
-              </div>
-            ))}
-          </motion.div>
+              ))}
+            </motion.div>
+          </div>
         </section>
 
         {/* Logo Ticker */}
@@ -148,7 +167,7 @@ const Index = () => {
               <motion.div
                 key={pillar.title}
                 variants={fadeUp}
-                className="border border-border rounded-lg p-8 glow-border transition-transform hover:scale-[1.01]"
+                className="bg-card border border-border rounded-lg p-8 glow-border transition-all hover:scale-[1.01] hover:shadow-md"
               >
                 <pillar.icon className="text-primary mb-4" size={28} />
                 <h3 className="text-xl font-bold text-foreground mb-3">{pillar.title}</h3>
@@ -167,40 +186,45 @@ const Index = () => {
         </section>
 
         {/* Why Founders */}
-        <section className="container mx-auto px-6 py-24">
-          <motion.h2
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="text-3xl md:text-4xl font-extrabold text-center mb-16"
-          >
-            Why Founders <span className="text-primary">Partner With Us</span>
-          </motion.h2>
-          <motion.div
-            variants={stagger}
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true, amount: 0.2 }}
-            className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto"
-          >
-            {whyFounders.map((item) => (
-              <motion.div key={item.title} variants={fadeUp} className="flex gap-4">
-                <div className="flex-shrink-0 w-12 h-12 rounded-lg bg-secondary flex items-center justify-center">
-                  <item.icon className="text-primary" size={22} />
-                </div>
-                <div>
-                  <h4 className="font-bold text-foreground mb-1">{item.title}</h4>
-                  <p className="text-muted-foreground text-sm leading-relaxed">{item.description}</p>
-                </div>
-              </motion.div>
-            ))}
-          </motion.div>
+        <section className="bg-card border-y border-border">
+          <div className="container mx-auto px-6 py-24">
+            <motion.h2
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              className="text-3xl md:text-4xl font-extrabold text-center mb-16 text-foreground"
+            >
+              Why Founders <span className="text-primary">Partner With Us</span>
+            </motion.h2>
+            <motion.div
+              variants={stagger}
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true, amount: 0.2 }}
+              className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto"
+            >
+              {whyFounders.map((item) => (
+                <motion.div key={item.title} variants={fadeUp} className="flex gap-4">
+                  <div className="flex-shrink-0 w-12 h-12 rounded-lg bg-secondary flex items-center justify-center">
+                    <item.icon className="text-primary" size={22} />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-foreground mb-1">{item.title}</h4>
+                    <p className="text-muted-foreground text-sm leading-relaxed">{item.description}</p>
+                  </div>
+                </motion.div>
+              ))}
+            </motion.div>
+          </div>
         </section>
 
         {/* Footer */}
-        <footer className="border-t border-border py-12">
+        <footer className="border-t border-border py-12 bg-card">
           <div className="container mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-4">
-            <span className="text-sm text-muted-foreground">© 2025 PEVC. All rights reserved.</span>
+            <div className="flex items-center gap-3">
+              <img src="/images/TransparentPEVC.png" alt="PEVC" className="h-6 brightness-0" />
+              <span className="text-sm text-muted-foreground">© 2025 PEVC. All rights reserved.</span>
+            </div>
             <div className="flex gap-6">
               {["Home", "Portfolio", "Team", "Projects", "Pitch Us"].map((l) => (
                 <Link

@@ -6,50 +6,51 @@
 
 @layer base {
   :root {
-    --background: 0 0% 4.3%;
-    --foreground: 0 0% 95%;
+    --background: 0 0% 96%;
+    --foreground: 210 11% 15%;
 
-    --card: 0 0% 7.1%;
-    --card-foreground: 0 0% 95%;
+    --card: 0 0% 100%;
+    --card-foreground: 210 11% 15%;
 
-    --popover: 0 0% 7.1%;
-    --popover-foreground: 0 0% 95%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 210 11% 15%;
 
-    --primary: 0 100% 36.7%;
+    --primary: 348 90% 42%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 0 0% 10%;
-    --secondary-foreground: 0 0% 85%;
+    --secondary: 210 6% 93%;
+    --secondary-foreground: 210 11% 25%;
 
-    --muted: 0 0% 12%;
-    --muted-foreground: 0 0% 55%;
+    --muted: 210 6% 90%;
+    --muted-foreground: 210 5% 45%;
 
-    --accent: 0 100% 36.7%;
+    --accent: 348 90% 42%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 0 0% 13.3%;
-    --input: 0 0% 13.3%;
-    --ring: 0 100% 36.7%;
+    --border: 210 10% 85%;
+    --input: 210 10% 85%;
+    --ring: 348 90% 42%;
 
     --radius: 0.5rem;
 
-    --sidebar-background: 0 0% 5%;
-    --sidebar-foreground: 0 0% 90%;
-    --sidebar-primary: 0 100% 36.7%;
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 210 11% 15%;
+    --sidebar-primary: 348 90% 42%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 0 0% 10%;
-    --sidebar-accent-foreground: 0 0% 90%;
-    --sidebar-border: 0 0% 13.3%;
-    --sidebar-ring: 0 100% 36.7%;
+    --sidebar-accent: 210 6% 95%;
+    --sidebar-accent-foreground: 210 11% 15%;
+    --sidebar-border: 210 10% 90%;
+    --sidebar-ring: 348 90% 42%;
 
     /* Custom tokens */
-    --scarlet: 0 100% 36.7%;
-    --scarlet-glow: 0 100% 36.7%;
-    --glass-bg: 0 0% 4.3% / 0.7;
-    --hairline: 0 0% 13.3%;
+    --scarlet: 348 90% 42%;
+    --scarlet-glow: 348 90% 50%;
+    --slate-accent: 204 10% 70%;
+    --glass-bg: 0 0% 100% / 0.85;
+    --hairline: 210 10% 88%;
   }
 }
 
@@ -69,7 +70,7 @@
   }
 }
 
-/* Glassmorphism */
+/* Glassmorphism - light version */
 .glass {
   background: hsla(var(--glass-bg));
   backdrop-filter: blur(20px);
@@ -103,15 +104,32 @@
 }
 .glow-border:hover {
   border-color: hsl(var(--scarlet));
-  box-shadow: 0 0 15px hsl(var(--scarlet) / 0.15);
+  box-shadow: 0 0 20px hsl(var(--scarlet) / 0.1);
 }
 
 /* Form input scarlet focus */
 .scarlet-input {
-  border-bottom: 1px solid hsl(0 0% 20%);
+  border-bottom: 1px solid hsl(210 10% 85%);
   transition: border-color 0.3s ease;
 }
 .scarlet-input:focus {
   border-bottom-color: hsl(var(--scarlet));
   outline: none;
+}
+
+/* Story link underline animation */
+.story-link * {
+  @apply relative inline-block;
+}
+.story-link *::after {
+  content: '';
+  @apply absolute w-full scale-x-0 h-0.5 bottom-0 left-0 bg-primary origin-bottom-right transition-transform duration-300;
+}
+.story-link *:hover::after {
+  @apply scale-x-100 origin-bottom-left;
+}
+
+/* Hover scale */
+.hover-scale {
+  @apply transition-transform duration-200 hover:scale-105;
 }
