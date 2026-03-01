@@ -6,7 +6,7 @@ const partners = [
 
 const LogoTicker = () => {
   return (
-    <div className="overflow-hidden py-12 border-y border-border">
+    <div className="overflow-hidden py-12 border-y border-border bg-card">
       <div className="animate-ticker flex whitespace-nowrap">
         {[...partners, ...partners].map((name, i) => (
           <div

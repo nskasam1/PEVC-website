@@ -32,24 +32,26 @@ const App = () => (
       <BrowserRouter>
         <AuthProvider>
           <ProjectProvider>
-            <Navbar />
-            <Routes>
-              <Route path="/" element={<Index />} />
-              <Route path="/portfolio" element={<Portfolio />} />
-              <Route path="/team" element={<Team />} />
-              <Route path="/projects" element={<Projects />} />
-              <Route path="/pitch" element={<PitchUs />} />
-              <Route path="/login" element={<Login />} />
-              <Route path="/profile" element={<Profile />} />
-              <Route path="/apply" element={<Apply />} />
-              <Route path="/admin/recruiting" element={<AdminRecruiting />} />
-              <Route path="/admin/content" element={<AdminContent />} />
-              <Route path="/onboarding" element={<Onboarding />} />
-              <Route path="/portal" element={<Portal />} />
-              <Route path="/my-projects" element={<MyProjects />} />
-              <Route path="/my-projects/:id" element={<ProjectDetail />} />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
+            <div className="bg-card min-h-screen w-full">
+              <Navbar />
+              <Routes>
+                <Route path="/" element={<Index />} />
+                <Route path="/portfolio" element={<Portfolio />} />
+                <Route path="/team" element={<Team />} />
+                <Route path="/projects" element={<Projects />} />
+                <Route path="/pitch" element={<PitchUs />} />
+                <Route path="/login" element={<Login />} />
+                <Route path="/profile" element={<Profile />} />
+                <Route path="/apply" element={<Apply />} />
+                <Route path="/admin/recruiting" element={<AdminRecruiting />} />
+                <Route path="/admin/content" element={<AdminContent />} />
+                <Route path="/onboarding" element={<Onboarding />} />
+                <Route path="/portal" element={<Portal />} />
+                <Route path="/my-projects" element={<MyProjects />} />
+                <Route path="/my-projects/:id" element={<ProjectDetail />} />
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </div>
           </ProjectProvider>
         </AuthProvider>
       </BrowserRouter>
