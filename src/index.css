@@ -11,7 +11,7 @@
 
     --card: 0 0% 100%;
     --card-foreground: 210 11% 15%;
-
+      --background: 0 0% 15%; /* #262626 Dark Gray */
     --popover: 0 0% 100%;
     --popover-foreground: 210 11% 15%;
 
@@ -61,6 +61,7 @@
 
   body {
     @apply bg-background text-foreground font-sans antialiased;
+    color: #E5E5E5;
     font-family: 'Montserrat', sans-serif;
   }
 

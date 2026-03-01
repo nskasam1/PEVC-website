@@ -13,7 +13,7 @@ const Profile = () => {
 
   return (
     <PageWrapper>
-      <section className="min-h-screen pt-28 pb-20 px-6">
+      <section className="min-h-screen pt-28 pb-20 px-6 bg-background">
         <div className="max-w-2xl mx-auto">
           <h1 className="text-3xl font-bold text-foreground mb-2">Profile</h1>
           <p className="text-muted-foreground mb-10">

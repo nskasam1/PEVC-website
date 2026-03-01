@@ -20,7 +20,7 @@ const PitchUs = () => {
 
   return (
     <PageWrapper>
-      <div className="min-h-screen pt-16">
+      <div className="min-h-screen pt-16 bg-background">
         <section className="container mx-auto px-6 py-24 max-w-2xl">
           <motion.h1
             initial={{ opacity: 0, y: 20 }}

@@ -32,7 +32,7 @@ const App = () => (
       <BrowserRouter>
         <AuthProvider>
           <ProjectProvider>
-            <div className="bg-card min-h-screen w-full">
+            <div className="bg-background min-h-screen w-full">
               <Navbar />
               <Routes>
                 <Route path="/" element={<Index />} />

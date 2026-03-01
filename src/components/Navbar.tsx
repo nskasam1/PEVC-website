@@ -48,8 +48,8 @@ const Navbar = () => {
 
   const isHome = location.pathname === "/";
   const navBg = scrolled || !isHome
-    ? "bg-white/95 backdrop-blur-md shadow-sm border-b border-border"
-    : "bg-transparent";
+    ? "bg-background backdrop-blur-md shadow-sm border-b border-border"
+    : "bg-background";
   const textColor = scrolled || !isHome ? "text-foreground" : "text-white";
   const mutedColor = scrolled || !isHome ? "text-muted-foreground" : "text-white/70";
 

@@ -177,7 +177,7 @@ const Index = () => {
         </section>
 
         {/* Why Founders */}
-        <section className="bg-card border-y border-border">
+        <section className="bg-background border-y border-border">
           <div className="container mx-auto px-6 py-24">
             <motion.h2
               initial={{ opacity: 0, y: 20 }}
@@ -210,7 +210,7 @@ const Index = () => {
         </section>
 
         {/* Footer */}
-        <footer className="border-t border-border py-12 bg-card">
+        <footer className="border-t border-border py-12 bg-background">
           <div className="container mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-4">
             <div className="flex items-center gap-3">
               <img src="/images/PEVCLogo.png" alt="PEVC" className="h-6 brightness-0" />
