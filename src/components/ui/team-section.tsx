@@ -1,6 +1,6 @@
-import { useState } from "react";
 import { motion } from "framer-motion";
 import { Linkedin } from "lucide-react";
+import { useTilt } from "@/hooks/use-tilt";
 
 interface Executive {
   name: string;
@@ -28,97 +28,82 @@ const stagger = {
   visible: { transition: { staggerChildren: 0.08 } },
 };
 
-const TeamSection = ({ executives, analysts }: TeamSectionProps) => {
-  const [hoveredExec, setHoveredExec] = useState<number | null>(null);
-  const [hoveredAnalyst, setHoveredAnalyst] = useState<number | null>(null);
+// Per-card component so useTilt can be called per exec
+function ExecCard({ member }: { member: Executive }) {
+  const { motionStyle, onMouseMove, onMouseLeave } = useTilt(5);
+  const initials = member.name.split(" ").map((n) => n[0]).join("");
 
   return (
+    <motion.div variants={fadeUp} style={{ perspective: "900px" }}>
+      <motion.div
+        onMouseMove={onMouseMove}
+        onMouseLeave={onMouseLeave}
+        style={motionStyle}
+        className="h-full"
+      >
+        <div className="editorial-card group bg-card/50 backdrop-blur-sm border border-border/40 p-6 text-center transition-all duration-500 hover:border-primary/20 h-full">
+          {/* Avatar */}
+          <div className="w-16 h-16 mx-auto mb-4 bg-secondary overflow-hidden transition-all duration-500 group-hover:ring-1 group-hover:ring-primary/30 group-hover:ring-offset-2 group-hover:ring-offset-card">
+            {member.img ? (
+              <img src={member.img} alt={member.name} className="w-full h-full object-cover" />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-lg font-bold text-muted-foreground font-syne">
+                {initials}
+              </div>
+            )}
+          </div>
+          <h3 className="font-semibold text-foreground tracking-tight text-sm">{member.name}</h3>
+          <p className="text-primary text-[10px] font-semibold mt-1 tracking-[0.15em] uppercase">{member.role}</p>
+          <div className="mt-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+            <Linkedin size={12} className="mx-auto text-muted-foreground hover:text-primary cursor-pointer transition-colors" />
+          </div>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+const TeamSection = ({ executives, analysts }: TeamSectionProps) => {
+  return (
     <div className="relative">
-      {/* Animated grid background */}
       <div className="absolute inset-0 animated-grid opacity-50" />
 
       <div className="relative z-10">
         {/* Executive Board */}
-        <h2 className="text-[11px] uppercase tracking-[0.25em] text-primary font-semibold mb-8">
+        <div className="text-[10px] uppercase tracking-[0.35em] text-primary font-semibold mb-8">
           Executive Board
-        </h2>
+        </div>
         <motion.div
           variants={stagger}
           initial="hidden"
           whileInView="visible"
           viewport={{ once: true }}
-          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-20"
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-px bg-border/20 mb-20"
         >
-          {executives.map((member, idx) => (
-            <motion.div
-              key={member.name}
-              variants={fadeUp}
-              onMouseEnter={() => setHoveredExec(idx)}
-              onMouseLeave={() => setHoveredExec(null)}
-              className="group relative"
-            >
-              <div
-                className={`
-                  bg-card/50 backdrop-blur-sm border border-border rounded-lg p-6 text-center
-                  transition-all duration-500
-                  ${hoveredExec === idx ? "border-primary/30 shadow-[0_0_40px_hsl(348_90%_42%/0.06)]" : ""}
-                `}
-              >
-                {/* Hover wave ripple */}
-                <div
-                  className={`absolute inset-0 rounded-lg bg-primary/[0.03] transition-opacity duration-500 ${
-                    hoveredExec === idx ? "opacity-100" : "opacity-0"
-                  }`}
-                />
-
-                <div className="relative z-10">
-                  <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-secondary overflow-hidden transition-all duration-500 group-hover:ring-2 group-hover:ring-primary/20 group-hover:ring-offset-2 group-hover:ring-offset-card">
-                    <div className="w-full h-full flex items-center justify-center text-xl font-bold text-muted-foreground">
-                      {member.name.split(" ").map(n => n[0]).join("")}
-                    </div>
-                  </div>
-                  <h3 className="font-semibold text-foreground tracking-tight">{member.name}</h3>
-                  <p className="text-primary text-sm font-medium mt-0.5">{member.role}</p>
-                  <div className="mt-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                    <Linkedin size={14} className="mx-auto text-muted-foreground hover:text-primary cursor-pointer transition-colors" />
-                  </div>
-                </div>
-              </div>
-            </motion.div>
+          {executives.map((member) => (
+            <ExecCard key={member.name} member={member} />
           ))}
         </motion.div>
 
         {/* Analysts & Associates */}
-        <h2 className="text-[11px] uppercase tracking-[0.25em] text-primary font-semibold mb-8">
+        <div className="text-[10px] uppercase tracking-[0.35em] text-primary font-semibold mb-8">
           Analysts & Associates
-        </h2>
+        </div>
         <motion.div
           variants={stagger}
           initial="hidden"
           whileInView="visible"
           viewport={{ once: true }}
-          className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3"
+          className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-px bg-border/20"
         >
-          {analysts.map((member, idx) => (
-            <motion.div
-              key={member.name}
-              variants={fadeUp}
-              onMouseEnter={() => setHoveredAnalyst(idx)}
-              onMouseLeave={() => setHoveredAnalyst(null)}
-              className="group"
-            >
-              <div
-                className={`
-                  bg-card/50 backdrop-blur-sm border border-border rounded-lg p-4
-                  transition-all duration-400
-                  ${hoveredAnalyst === idx ? "border-primary/30" : ""}
-                `}
-              >
-                <div className="w-10 h-10 mb-3 rounded-lg bg-secondary flex items-center justify-center text-xs font-bold text-muted-foreground transition-all group-hover:bg-primary/10 group-hover:text-primary">
-                  {member.name.split(" ").map(n => n[0]).join("")}
+          {analysts.map((member) => (
+            <motion.div key={member.name} variants={fadeUp} className="group">
+              <div className="editorial-card bg-card/50 backdrop-blur-sm border border-border/40 p-5 transition-all duration-400 hover:border-primary/20">
+                <div className="w-8 h-8 mb-3 bg-secondary flex items-center justify-center text-[11px] font-bold text-muted-foreground transition-all group-hover:bg-primary/10 group-hover:text-primary font-syne">
+                  {member.name.split(" ").map((n) => n[0]).join("")}
                 </div>
                 <h3 className="font-semibold text-sm text-foreground tracking-tight">{member.name}</h3>
-                <p className="text-primary text-xs font-medium mt-0.5">{member.role}</p>
+                <p className="text-primary text-[10px] font-semibold mt-0.5 tracking-[0.1em] uppercase">{member.role}</p>
               </div>
             </motion.div>
           ))}

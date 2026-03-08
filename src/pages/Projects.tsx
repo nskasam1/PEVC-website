@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import PageWrapper from "../components/PageWrapper";
-import { Calendar, FlaskConical, Megaphone } from "lucide-react";
+import { Calendar, FlaskConical, Megaphone, type LucideIcon } from "lucide-react";
+import { useTilt } from "../hooks/use-tilt";
 
 const projects = [
   {
@@ -33,6 +34,42 @@ const fadeUp = {
   visible: { opacity: 1, y: 0, transition: { duration: 0.5 } },
 };
 
+// Per-component so useTilt hook isn't called conditionally
+function ProjectVisual({ icon: Icon }: { icon: LucideIcon }) {
+  const { motionStyle, onMouseMove, onMouseLeave } = useTilt(6);
+  return (
+    <div className="flex-1 w-full" style={{ perspective: "1000px" }}>
+      <motion.div
+        onMouseMove={onMouseMove}
+        onMouseLeave={onMouseLeave}
+        style={motionStyle}
+        className="h-full"
+      >
+        <div className="aspect-video bg-card border border-border/50 flex items-center justify-center relative overflow-hidden group">
+          {/* Animated corner bracket marks */}
+          <div className="absolute top-0 left-0 w-6 h-6 border-t border-l border-primary/30 transition-all duration-500 group-hover:w-12 group-hover:h-12 group-hover:border-primary/60" />
+          <div className="absolute top-0 right-0 w-6 h-6 border-t border-r border-primary/30 transition-all duration-500 group-hover:w-12 group-hover:h-12 group-hover:border-primary/60" />
+          <div className="absolute bottom-0 left-0 w-6 h-6 border-b border-l border-primary/30 transition-all duration-500 group-hover:w-12 group-hover:h-12 group-hover:border-primary/60" />
+          <div className="absolute bottom-0 right-0 w-6 h-6 border-b border-r border-primary/30 transition-all duration-500 group-hover:w-12 group-hover:h-12 group-hover:border-primary/60" />
+
+          {/* Subtle grid inside the visual block */}
+          <div className="absolute inset-0 animated-grid opacity-30" />
+
+          {/* Icon — faint, large, centered */}
+          <Icon
+            className="text-primary/20 group-hover:text-primary/50 transition-all duration-500 group-hover:scale-110 relative z-10"
+            size={60}
+            strokeWidth={0.75}
+          />
+
+          {/* Scanline overlay for texture */}
+          <div className="absolute inset-0 scanlines pointer-events-none" />
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
 const Projects = () => {
   return (
     <PageWrapper>
@@ -45,7 +82,7 @@ const Projects = () => {
           >
             Projects & Initiatives
           </motion.h1>
-          <p className="text-muted-foreground mb-20 max-w-xl">
+          <p className="text-muted-foreground mb-20 max-w-xl font-dm">
             Hands-on experiences that bridge the gap between classroom learning and venture capital.
           </p>
 
@@ -62,45 +99,44 @@ const Projects = () => {
                   project.reverse ? "md:flex-row-reverse" : ""
                 }`}
               >
-                {/* Visual */}
-                <div className="flex-1 w-full">
-                  <div className="aspect-video rounded-lg bg-secondary border border-border flex items-center justify-center">
-                    <project.icon className="text-primary" size={64} strokeWidth={1} />
-                  </div>
-                </div>
+                <ProjectVisual icon={project.icon} />
+
                 {/* Text */}
                 <div className="flex-1">
-                  <div className="text-xs uppercase tracking-widest text-primary font-semibold mb-3">
+                  <div className="text-[10px] uppercase tracking-[0.4em] text-primary font-semibold mb-4">
                     Initiative {String(i + 1).padStart(2, "0")}
                   </div>
-                  <h2 className="text-2xl md:text-3xl font-bold text-foreground mb-4">
+                  <h2 className="text-2xl md:text-3xl font-bold text-foreground mb-4 leading-tight">
                     {project.title}
                   </h2>
-                  <p className="text-muted-foreground leading-relaxed">
-                    {project.description}
-                  </p>
+                  <p className="text-muted-foreground leading-relaxed text-sm font-dm">{project.description}</p>
                 </div>
               </motion.div>
             ))}
           </div>
 
-          {/* Partner Firms */}
+          {/* Partner Firms — editorial numbered table */}
           <motion.div
             initial={{ opacity: 0 }}
             whileInView={{ opacity: 1 }}
             viewport={{ once: true }}
             className="mt-32"
           >
-            <h2 className="text-sm uppercase tracking-widest text-primary font-semibold mb-8 text-center">
+            <div className="text-[10px] uppercase tracking-[0.4em] text-primary font-semibold mb-10 text-center">
               Partner Firms
-            </h2>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 max-w-2xl mx-auto">
-              {partnerFirms.map((firm) => (
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-px bg-border/30 border border-border/30 max-w-2xl mx-auto overflow-hidden">
+              {partnerFirms.map((firm, i) => (
                 <div
                   key={firm}
-                  className="border border-border rounded-lg p-4 text-center text-sm font-medium text-muted-foreground glow-border"
+                  className="editorial-card bg-card p-5 group hover:bg-card/70 transition-colors duration-300"
                 >
-                  {firm}
+                  <div className="text-[9px] font-semibold tracking-[0.3em] text-muted-foreground/30 uppercase mb-1.5">
+                    {String(i + 1).padStart(2, "0")}
+                  </div>
+                  <p className="text-sm font-medium text-foreground group-hover:text-primary transition-colors duration-300 tracking-tight">
+                    {firm}
+                  </p>
                 </div>
               ))}
             </div>
