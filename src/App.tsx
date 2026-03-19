@@ -20,6 +20,7 @@ import Onboarding from "./pages/Onboarding";
 import Portal from "./pages/Portal";
 import MyProjects from "./pages/MyProjects";
 import ProjectDetail from "./pages/ProjectDetail";
+import CalendarPage from "./pages/Calendar";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
