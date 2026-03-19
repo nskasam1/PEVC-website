@@ -10,22 +10,20 @@ import {
   Edit2, Save, Upload, File, Download, Send as SendIcon,
 } from "lucide-react";
 
-// ─── File Upload Types & Storage ─────────────────────────────
+// ─── File Upload Types & Storage (per-deliverable) ───────────
 interface UploadedFile {
   id: string;
   name: string;
   size: number;
   uploadedBy: string;
-  uploadedByRole: string;
   uploadedAt: string;
-  projectId: string;
-  type: "deliverable" | "client_package";
+  deliverableId: string;
 }
 
-const getStoredFiles = (projectId: string): UploadedFile[] => {
+const getFilesForDeliverable = (deliverableId: string): UploadedFile[] => {
   try {
     const all = JSON.parse(localStorage.getItem("pevc_files") || "[]") as UploadedFile[];
-    return all.filter((f) => f.projectId === projectId);
+    return all.filter((f) => f.deliverableId === deliverableId);
   } catch { return []; }
 };
 
