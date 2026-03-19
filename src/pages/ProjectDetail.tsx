@@ -192,6 +192,38 @@ const ProjectDetail = () => {
   const [addOpen, setAddOpen] = useState(false);
   const [addMemberOpen, setAddMemberOpen] = useState(false);
   const [selectedMember, setSelectedMember] = useState(ALL_MEMBERS[0].id);
+  const [files, setFiles] = useState<UploadedFile[]>([]);
+  const [fileRefresh, setFileRefresh] = useState(0);
+
+  // Load files from localStorage when project changes
+  const projectFiles = id ? getStoredFiles(id) : [];
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, type: "deliverable" | "client_package") => {
+    const fileList = e.target.files;
+    if (!fileList || !user || !id) return;
+    Array.from(fileList).forEach((f) => {
+      const uploaded: UploadedFile = {
+        id: `file-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        name: f.name,
+        size: f.size,
+        uploadedBy: user.name,
+        uploadedByRole: user.role,
+        uploadedAt: new Date().toISOString(),
+        projectId: id,
+        type,
+      };
+      storeFile(uploaded);
+    });
+    setFileRefresh((n) => n + 1);
+    toast({ title: "File Uploaded", description: `${fileList.length} file(s) uploaded successfully.` });
+    e.target.value = "";
+  };
+
+  const handleDeleteFile = (fileId: string) => {
+    removeStoredFile(fileId);
+    setFileRefresh((n) => n + 1);
+    toast({ title: "File Removed" });
+  };
 
   if (!isAuthenticated || !user) return <Navigate to="/login" replace />;
 
