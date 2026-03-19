@@ -12,6 +12,7 @@ export interface Deliverable {
   assigneeName: string;
   deadline: string;
   projectId: string;
+  requiresFile: boolean;
 }
 
 export interface ClientInfo {
@@ -99,11 +100,11 @@ const SEED_PROJECTS: Project[] = [
 ];
 
 const SEED_DELIVERABLES: Deliverable[] = [
-  { id: "del-1", title: "Competitive Analysis Report", status: "in_progress", assigneeId: "3", assigneeName: "Member User", deadline: "2026-03-15", projectId: "proj-1" },
-  { id: "del-2", title: "Financial Model v1", status: "done", assigneeId: "3", assigneeName: "Member User", deadline: "2026-03-10", projectId: "proj-1" },
-  { id: "del-3", title: "Market Sizing Deck", status: "not_started", assigneeId: "3", assigneeName: "Member User", deadline: "2026-04-01", projectId: "proj-2" },
-  { id: "del-4", title: "Investor Memo Draft", status: "review", assigneeId: "3", assigneeName: "Member User", deadline: "2026-03-20", projectId: "proj-1" },
-  { id: "del-5", title: "Pipeline Tracker Setup", status: "in_progress", assigneeId: "7", assigneeName: "Member Beta", deadline: "2026-03-25", projectId: "proj-3" },
+  { id: "del-1", title: "Competitive Analysis Report", status: "in_progress", assigneeId: "3", assigneeName: "Member User", deadline: "2026-03-15", projectId: "proj-1", requiresFile: true },
+  { id: "del-2", title: "Financial Model v1", status: "done", assigneeId: "3", assigneeName: "Member User", deadline: "2026-03-10", projectId: "proj-1", requiresFile: true },
+  { id: "del-3", title: "Market Sizing Deck", status: "not_started", assigneeId: "3", assigneeName: "Member User", deadline: "2026-04-01", projectId: "proj-2", requiresFile: true },
+  { id: "del-4", title: "Investor Memo Draft", status: "review", assigneeId: "3", assigneeName: "Member User", deadline: "2026-03-20", projectId: "proj-1", requiresFile: false },
+  { id: "del-5", title: "Pipeline Tracker Setup", status: "in_progress", assigneeId: "7", assigneeName: "Member Beta", deadline: "2026-03-25", projectId: "proj-3", requiresFile: false },
 ];
 
 const SEED_NOTIFICATIONS: Notification[] = [

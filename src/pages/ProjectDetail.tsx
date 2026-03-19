@@ -10,22 +10,20 @@ import {
   Edit2, Save, Upload, File, Download, Send as SendIcon,
 } from "lucide-react";
 
-// ─── File Upload Types & Storage ─────────────────────────────
+// ─── File Upload Types & Storage (per-deliverable) ───────────
 interface UploadedFile {
   id: string;
   name: string;
   size: number;
   uploadedBy: string;
-  uploadedByRole: string;
   uploadedAt: string;
-  projectId: string;
-  type: "deliverable" | "client_package";
+  deliverableId: string;
 }
 
-const getStoredFiles = (projectId: string): UploadedFile[] => {
+const getFilesForDeliverable = (deliverableId: string): UploadedFile[] => {
   try {
     const all = JSON.parse(localStorage.getItem("pevc_files") || "[]") as UploadedFile[];
-    return all.filter((f) => f.projectId === projectId);
+    return all.filter((f) => f.deliverableId === deliverableId);
   } catch { return []; }
 };
 
@@ -86,15 +84,16 @@ const AddDeliverableModal = ({ open, onClose, projectId }: { open: boolean; onCl
   const [title, setTitle] = useState("");
   const [assigneeId, setAssigneeId] = useState(ALL_MEMBERS[0].id);
   const [deadline, setDeadline] = useState("");
+  const [requiresFile, setRequiresFile] = useState(false);
 
   if (!open) return null;
 
   const submit = () => {
     if (!title.trim()) return;
     const member = ALL_MEMBERS.find((m) => m.id === assigneeId)!;
-    addDeliverable({ title, status: "not_started", assigneeId, assigneeName: member.name, deadline: deadline || "TBD", projectId });
+    addDeliverable({ title, status: "not_started", assigneeId, assigneeName: member.name, deadline: deadline || "TBD", projectId, requiresFile });
     toast({ title: "Deliverable Added", description: `"${title}" assigned to ${member.name}` });
-    setTitle(""); setDeadline("");
+    setTitle(""); setDeadline(""); setRequiresFile(false);
     onClose();
   };
 
@@ -119,6 +118,12 @@ const AddDeliverableModal = ({ open, onClose, projectId }: { open: boolean; onCl
           <div>
             <label className="text-xs uppercase tracking-widest text-muted-foreground mb-1 block">Deadline</label>
             <input type="date" value={deadline} onChange={(e) => setDeadline(e.target.value)} className="w-full bg-card border border-border rounded-md px-3 py-2 text-sm text-foreground focus:ring-1 focus:ring-primary focus:outline-none" />
+          </div>
+          <div className="flex items-center gap-3">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" checked={requiresFile} onChange={(e) => setRequiresFile(e.target.checked)} className="w-4 h-4 rounded border-border text-primary focus:ring-primary" />
+              <span className="text-xs text-foreground">Requires file upload</span>
+            </label>
           </div>
           <button onClick={submit} className="w-full bg-primary text-primary-foreground py-2 rounded-md text-sm font-semibold hover:bg-primary/90 transition-colors">
             Add Deliverable
@@ -192,30 +197,24 @@ const ProjectDetail = () => {
   const [addOpen, setAddOpen] = useState(false);
   const [addMemberOpen, setAddMemberOpen] = useState(false);
   const [selectedMember, setSelectedMember] = useState(ALL_MEMBERS[0].id);
-  const [files, setFiles] = useState<UploadedFile[]>([]);
   const [fileRefresh, setFileRefresh] = useState(0);
 
-  // Load files from localStorage when project changes
-  const projectFiles = id ? getStoredFiles(id) : [];
-
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, type: "deliverable" | "client_package") => {
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, deliverableId: string) => {
     const fileList = e.target.files;
-    if (!fileList || !user || !id) return;
+    if (!fileList || !user) return;
     Array.from(fileList).forEach((f) => {
       const uploaded: UploadedFile = {
         id: `file-${Date.now()}-${Math.random().toString(36).slice(2)}`,
         name: f.name,
         size: f.size,
         uploadedBy: user.name,
-        uploadedByRole: user.role,
         uploadedAt: new Date().toISOString(),
-        projectId: id,
-        type,
+        deliverableId,
       };
       storeFile(uploaded);
     });
     setFileRefresh((n) => n + 1);
-    toast({ title: "File Uploaded", description: `${fileList.length} file(s) uploaded successfully.` });
+    toast({ title: "File Uploaded", description: `${fileList.length} file(s) uploaded.` });
     e.target.value = "";
   };
 
@@ -319,79 +318,68 @@ const ProjectDetail = () => {
                   <p className="text-sm text-muted-foreground">No deliverables yet.</p>
                 </div>
               ) : (
-                memberDels.map((d) => (
-                  <div key={d.id} className="border border-border rounded-lg px-4 py-3 bg-card flex items-center justify-between gap-3 glow-border">
-                    <div className="flex-1 min-w-0">
-                      <p className={`text-sm font-medium ${d.status === "done" ? "line-through text-muted-foreground" : "text-foreground"}`}>{d.title}</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">{d.assigneeName} · Due {d.deadline}</p>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <StatusBadge status={d.status} canEdit={canManage || (isMember && d.assigneeId === user.id)} onUpdate={(s) => {
-                        updateDeliverableStatus(d.id, s);
-                        toast({ title: "Status Updated", description: `"${d.title}" → ${s.replace("_", " ")}` });
-                      }} />
-                      {canManage && (
-                        <button onClick={() => { deleteDeliverable(d.id); toast({ title: "Deleted", description: d.title }); }} className="text-muted-foreground hover:text-destructive transition-colors">
-                          <Trash2 size={14} />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ))
-              )}
-
-
-              {/* File Upload Section */}
-              {(canManage || isMember) && (
-                <div className="border border-border rounded-lg p-5 bg-card mt-6">
-                  <h2 className="text-sm font-bold uppercase tracking-widest text-foreground mb-4 flex items-center gap-2">
-                    <Upload size={14} className="text-primary" /> Files
-                  </h2>
-
-                  {/* Upload buttons */}
-                  <div className="flex flex-wrap gap-2 mb-4">
-                    {isMember && (
-                      <label className="flex items-center gap-1.5 border border-border text-foreground px-3 py-2 rounded-md text-xs font-semibold hover:border-primary/40 transition-colors cursor-pointer">
-                        <Upload size={14} /> Upload Deliverable
-                        <input type="file" multiple className="hidden" onChange={(e) => handleFileUpload(e, "deliverable")} />
-                      </label>
-                    )}
-                    {isPM && (
-                      <label className="flex items-center gap-1.5 bg-primary text-primary-foreground px-3 py-2 rounded-md text-xs font-semibold hover:bg-primary/90 transition-colors cursor-pointer">
-                        <SendIcon size={14} /> Send to Client
-                        <input type="file" multiple className="hidden" onChange={(e) => handleFileUpload(e, "client_package")} />
-                      </label>
-                    )}
-                  </div>
-
-                  {/* File list */}
-                  {projectFiles.length === 0 ? (
-                    <p className="text-xs text-muted-foreground">No files uploaded yet.</p>
-                  ) : (
-                    <div className="space-y-2">
-                      {projectFiles.map((f) => (
-                        <div key={f.id} className="flex items-center justify-between border border-border rounded-md px-3 py-2 bg-secondary/30">
-                          <div className="flex items-center gap-2 min-w-0">
-                            <File size={14} className="text-primary shrink-0" />
-                            <div className="min-w-0">
-                              <p className="text-xs font-medium text-foreground truncate">{f.name}</p>
-                              <p className="text-[10px] text-muted-foreground">
-                                {f.uploadedBy} · {f.type === "client_package" ? "Client Package" : "Deliverable"} · {(f.size / 1024).toFixed(1)}KB
-                              </p>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-1.5 shrink-0">
-                            {canManage && (
-                              <button onClick={() => handleDeleteFile(f.id)} className="text-muted-foreground hover:text-destructive transition-colors">
-                                <Trash2 size={12} />
-                              </button>
+                memberDels.map((d) => {
+                  const delFiles = getFilesForDeliverable(d.id);
+                  const canUpload = (isMember && d.assigneeId === user.id) || canManage;
+                  return (
+                    <div key={d.id} className="border border-border rounded-lg bg-card glow-border overflow-hidden">
+                      <div className="flex items-center justify-between gap-3 px-4 py-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className={`text-sm font-medium ${d.status === "done" ? "line-through text-muted-foreground" : "text-foreground"}`}>{d.title}</p>
+                            {d.requiresFile && (
+                              <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${delFiles.length > 0 ? "bg-green-400/10 text-green-400" : "bg-primary/10 text-primary"}`}>
+                                {delFiles.length > 0 ? "File attached" : "File required"}
+                              </span>
                             )}
                           </div>
+                          <p className="text-xs text-muted-foreground mt-0.5">{d.assigneeName} · Due {d.deadline}</p>
                         </div>
-                      ))}
+                        <div className="flex items-center gap-2 shrink-0">
+                          <StatusBadge status={d.status} canEdit={canManage || (isMember && d.assigneeId === user.id)} onUpdate={(s) => {
+                            updateDeliverableStatus(d.id, s);
+                            toast({ title: "Status Updated", description: `"${d.title}" → ${s.replace("_", " ")}` });
+                          }} />
+                          {canManage && (
+                            <button onClick={() => { deleteDeliverable(d.id); toast({ title: "Deleted", description: d.title }); }} className="text-muted-foreground hover:text-destructive transition-colors">
+                              <Trash2 size={14} />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Per-deliverable file section */}
+                      {d.requiresFile && (
+                        <div className="border-t border-border px-4 py-2.5 bg-secondary/20">
+                          {delFiles.length > 0 && (
+                            <div className="space-y-1.5 mb-2">
+                              {delFiles.map((f) => (
+                                <div key={f.id} className="flex items-center justify-between">
+                                  <div className="flex items-center gap-2 min-w-0">
+                                    <File size={12} className="text-primary shrink-0" />
+                                    <span className="text-xs text-foreground truncate">{f.name}</span>
+                                    <span className="text-[10px] text-muted-foreground">({(f.size / 1024).toFixed(1)}KB · {f.uploadedBy})</span>
+                                  </div>
+                                  {(canManage || (isMember && d.assigneeId === user.id)) && (
+                                    <button onClick={() => handleDeleteFile(f.id)} className="text-muted-foreground hover:text-destructive transition-colors">
+                                      <Trash2 size={11} />
+                                    </button>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          {canUpload && (
+                            <label className="inline-flex items-center gap-1.5 text-xs text-primary hover:text-primary/80 cursor-pointer transition-colors">
+                              <Upload size={12} /> Upload file
+                              <input type="file" multiple className="hidden" onChange={(e) => handleFileUpload(e, d.id)} />
+                            </label>
+                          )}
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
+                  );
+                })
               )}
             </div>
 
