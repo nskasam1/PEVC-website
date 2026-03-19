@@ -119,6 +119,12 @@ const AddDeliverableModal = ({ open, onClose, projectId }: { open: boolean; onCl
             <label className="text-xs uppercase tracking-widest text-muted-foreground mb-1 block">Deadline</label>
             <input type="date" value={deadline} onChange={(e) => setDeadline(e.target.value)} className="w-full bg-card border border-border rounded-md px-3 py-2 text-sm text-foreground focus:ring-1 focus:ring-primary focus:outline-none" />
           </div>
+          <div className="flex items-center gap-3">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" checked={requiresFile} onChange={(e) => setRequiresFile(e.target.checked)} className="w-4 h-4 rounded border-border text-primary focus:ring-primary" />
+              <span className="text-xs text-foreground">Requires file upload</span>
+            </label>
+          </div>
           <button onClick={submit} className="w-full bg-primary text-primary-foreground py-2 rounded-md text-sm font-semibold hover:bg-primary/90 transition-colors">
             Add Deliverable
           </button>
