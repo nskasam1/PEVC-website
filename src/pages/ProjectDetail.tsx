@@ -7,8 +7,38 @@ import { toast } from "@/hooks/use-toast";
 import {
   ArrowLeft, Plus, X, CheckCircle2, Clock, AlertCircle, FileText,
   Trash2, ChevronDown, Users, Briefcase, Phone, Mail, StickyNote,
-  Edit2, Save,
+  Edit2, Save, Upload, File, Download, Send as SendIcon,
 } from "lucide-react";
+
+// ─── File Upload Types & Storage ─────────────────────────────
+interface UploadedFile {
+  id: string;
+  name: string;
+  size: number;
+  uploadedBy: string;
+  uploadedByRole: string;
+  uploadedAt: string;
+  projectId: string;
+  type: "deliverable" | "client_package";
+}
+
+const getStoredFiles = (projectId: string): UploadedFile[] => {
+  try {
+    const all = JSON.parse(localStorage.getItem("pevc_files") || "[]") as UploadedFile[];
+    return all.filter((f) => f.projectId === projectId);
+  } catch { return []; }
+};
+
+const storeFile = (file: UploadedFile) => {
+  const all = JSON.parse(localStorage.getItem("pevc_files") || "[]") as UploadedFile[];
+  all.push(file);
+  localStorage.setItem("pevc_files", JSON.stringify(all));
+};
+
+const removeStoredFile = (fileId: string) => {
+  const all = JSON.parse(localStorage.getItem("pevc_files") || "[]") as UploadedFile[];
+  localStorage.setItem("pevc_files", JSON.stringify(all.filter((f) => f.id !== fileId)));
+};
 
 const STATUS_OPTIONS: { value: DeliverableStatus; label: string; color: string; icon: typeof Clock }[] = [
   { value: "not_started", label: "Not Started", color: "text-muted-foreground bg-secondary", icon: AlertCircle },
@@ -162,6 +192,38 @@ const ProjectDetail = () => {
   const [addOpen, setAddOpen] = useState(false);
   const [addMemberOpen, setAddMemberOpen] = useState(false);
   const [selectedMember, setSelectedMember] = useState(ALL_MEMBERS[0].id);
+  const [files, setFiles] = useState<UploadedFile[]>([]);
+  const [fileRefresh, setFileRefresh] = useState(0);
+
+  // Load files from localStorage when project changes
+  const projectFiles = id ? getStoredFiles(id) : [];
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, type: "deliverable" | "client_package") => {
+    const fileList = e.target.files;
+    if (!fileList || !user || !id) return;
+    Array.from(fileList).forEach((f) => {
+      const uploaded: UploadedFile = {
+        id: `file-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        name: f.name,
+        size: f.size,
+        uploadedBy: user.name,
+        uploadedByRole: user.role,
+        uploadedAt: new Date().toISOString(),
+        projectId: id,
+        type,
+      };
+      storeFile(uploaded);
+    });
+    setFileRefresh((n) => n + 1);
+    toast({ title: "File Uploaded", description: `${fileList.length} file(s) uploaded successfully.` });
+    e.target.value = "";
+  };
+
+  const handleDeleteFile = (fileId: string) => {
+    removeStoredFile(fileId);
+    setFileRefresh((n) => n + 1);
+    toast({ title: "File Removed" });
+  };
 
   if (!isAuthenticated || !user) return <Navigate to="/login" replace />;
 
@@ -276,6 +338,60 @@ const ProjectDetail = () => {
                     </div>
                   </div>
                 ))
+              )}
+
+
+              {/* File Upload Section */}
+              {(canManage || isMember) && (
+                <div className="border border-border rounded-lg p-5 bg-card mt-6">
+                  <h2 className="text-sm font-bold uppercase tracking-widest text-foreground mb-4 flex items-center gap-2">
+                    <Upload size={14} className="text-primary" /> Files
+                  </h2>
+
+                  {/* Upload buttons */}
+                  <div className="flex flex-wrap gap-2 mb-4">
+                    {isMember && (
+                      <label className="flex items-center gap-1.5 border border-border text-foreground px-3 py-2 rounded-md text-xs font-semibold hover:border-primary/40 transition-colors cursor-pointer">
+                        <Upload size={14} /> Upload Deliverable
+                        <input type="file" multiple className="hidden" onChange={(e) => handleFileUpload(e, "deliverable")} />
+                      </label>
+                    )}
+                    {isPM && (
+                      <label className="flex items-center gap-1.5 bg-primary text-primary-foreground px-3 py-2 rounded-md text-xs font-semibold hover:bg-primary/90 transition-colors cursor-pointer">
+                        <SendIcon size={14} /> Send to Client
+                        <input type="file" multiple className="hidden" onChange={(e) => handleFileUpload(e, "client_package")} />
+                      </label>
+                    )}
+                  </div>
+
+                  {/* File list */}
+                  {projectFiles.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">No files uploaded yet.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {projectFiles.map((f) => (
+                        <div key={f.id} className="flex items-center justify-between border border-border rounded-md px-3 py-2 bg-secondary/30">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <File size={14} className="text-primary shrink-0" />
+                            <div className="min-w-0">
+                              <p className="text-xs font-medium text-foreground truncate">{f.name}</p>
+                              <p className="text-[10px] text-muted-foreground">
+                                {f.uploadedBy} · {f.type === "client_package" ? "Client Package" : "Deliverable"} · {(f.size / 1024).toFixed(1)}KB
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            {canManage && (
+                              <button onClick={() => handleDeleteFile(f.id)} className="text-muted-foreground hover:text-destructive transition-colors">
+                                <Trash2 size={12} />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               )}
             </div>
 

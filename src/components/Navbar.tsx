@@ -36,6 +36,7 @@ const Navbar = () => {
   if (isAuthenticated && user) {
     if (["Admin", "PM", "Member"].includes(user.role)) {
       navLinks.push({ label: "My Projects", path: "/my-projects" });
+      navLinks.push({ label: "Calendar", path: "/calendar" });
     }
     if (["PM", "Member", "Client"].includes(user.role)) {
       navLinks.push({ label: "Portal", path: "/portal" });

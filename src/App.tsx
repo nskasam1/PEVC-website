@@ -20,6 +20,7 @@ import Onboarding from "./pages/Onboarding";
 import Portal from "./pages/Portal";
 import MyProjects from "./pages/MyProjects";
 import ProjectDetail from "./pages/ProjectDetail";
+import CalendarPage from "./pages/Calendar";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -49,6 +50,7 @@ const App = () => (
                 <Route path="/portal" element={<Portal />} />
                 <Route path="/my-projects" element={<MyProjects />} />
                 <Route path="/my-projects/:id" element={<ProjectDetail />} />
+                <Route path="/calendar" element={<CalendarPage />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </div>
