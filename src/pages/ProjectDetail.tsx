@@ -84,15 +84,16 @@ const AddDeliverableModal = ({ open, onClose, projectId }: { open: boolean; onCl
   const [title, setTitle] = useState("");
   const [assigneeId, setAssigneeId] = useState(ALL_MEMBERS[0].id);
   const [deadline, setDeadline] = useState("");
+  const [requiresFile, setRequiresFile] = useState(false);
 
   if (!open) return null;
 
   const submit = () => {
     if (!title.trim()) return;
     const member = ALL_MEMBERS.find((m) => m.id === assigneeId)!;
-    addDeliverable({ title, status: "not_started", assigneeId, assigneeName: member.name, deadline: deadline || "TBD", projectId });
+    addDeliverable({ title, status: "not_started", assigneeId, assigneeName: member.name, deadline: deadline || "TBD", projectId, requiresFile });
     toast({ title: "Deliverable Added", description: `"${title}" assigned to ${member.name}` });
-    setTitle(""); setDeadline("");
+    setTitle(""); setDeadline(""); setRequiresFile(false);
     onClose();
   };
 
