@@ -12,6 +12,7 @@ export interface Deliverable {
   assigneeName: string;
   deadline: string;
   projectId: string;
+  requiresFile: boolean;
 }
 
 export interface ClientInfo {
