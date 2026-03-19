@@ -7,8 +7,38 @@ import { toast } from "@/hooks/use-toast";
 import {
   ArrowLeft, Plus, X, CheckCircle2, Clock, AlertCircle, FileText,
   Trash2, ChevronDown, Users, Briefcase, Phone, Mail, StickyNote,
-  Edit2, Save,
+  Edit2, Save, Upload, File, Download, Send as SendIcon,
 } from "lucide-react";
+
+// ─── File Upload Types & Storage ─────────────────────────────
+interface UploadedFile {
+  id: string;
+  name: string;
+  size: number;
+  uploadedBy: string;
+  uploadedByRole: string;
+  uploadedAt: string;
+  projectId: string;
+  type: "deliverable" | "client_package";
+}
+
+const getStoredFiles = (projectId: string): UploadedFile[] => {
+  try {
+    const all = JSON.parse(localStorage.getItem("pevc_files") || "[]") as UploadedFile[];
+    return all.filter((f) => f.projectId === projectId);
+  } catch { return []; }
+};
+
+const storeFile = (file: UploadedFile) => {
+  const all = JSON.parse(localStorage.getItem("pevc_files") || "[]") as UploadedFile[];
+  all.push(file);
+  localStorage.setItem("pevc_files", JSON.stringify(all));
+};
+
+const removeStoredFile = (fileId: string) => {
+  const all = JSON.parse(localStorage.getItem("pevc_files") || "[]") as UploadedFile[];
+  localStorage.setItem("pevc_files", JSON.stringify(all.filter((f) => f.id !== fileId)));
+};
 
 const STATUS_OPTIONS: { value: DeliverableStatus; label: string; color: string; icon: typeof Clock }[] = [
   { value: "not_started", label: "Not Started", color: "text-muted-foreground bg-secondary", icon: AlertCircle },
