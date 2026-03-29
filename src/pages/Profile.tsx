@@ -2,14 +2,46 @@ import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Navigate } from "react-router-dom";
 import PageWrapper from "@/components/PageWrapper";
-import { Upload, FileText, User } from "lucide-react";
+import { Upload, FileText, User, Loader2, CheckCircle } from "lucide-react";
+import { toast } from "@/hooks/use-toast";
+import { supabase } from "@/lib/supabase";
 
 const Profile = () => {
-  const { user, isAuthenticated, updateProfile } = useAuth();
-  const [headshot, setHeadshot] = useState<string | null>(null);
-  const [resume, setResume] = useState<string | null>(null);
+  const { user, isAuthenticated, loading: authLoading, updateProfile } = useAuth();
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [saved, setSaved] = useState<Record<string, boolean>>({});
 
+  // Wait for auth to finish before redirecting — avoids false redirect on page load
+  if (authLoading) return null;
   if (!isAuthenticated || !user) return <Navigate to="/login" replace />;
+
+  const handleAvatarUpload = async (file: File) => {
+    setUploadingAvatar(true);
+    try {
+      const ext = file.name.split(".").pop();
+      const path = `${user.id}/avatar.${ext}`;
+      const { error } = await supabase.storage.from("resumes").upload(path, file, { upsert: true });
+      if (error) throw new Error(error.message);
+      const { data } = supabase.storage.from("resumes").getPublicUrl(path);
+      await updateProfile({ avatar: data.publicUrl });
+      toast({ title: "Avatar updated" });
+    } catch (e) {
+      toast({ title: "Upload failed", description: String(e), variant: "destructive" });
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
+
+  const handleBlurSave = async (field: keyof typeof user, value: string) => {
+    if (value === (user[field] ?? "")) return;
+    try {
+      await updateProfile({ [field]: value });
+      setSaved((s) => ({ ...s, [field]: true }));
+      setTimeout(() => setSaved((s) => ({ ...s, [field]: false })), 2000);
+    } catch (e) {
+      toast({ title: "Save failed", description: String(e), variant: "destructive" });
+    }
+  };
 
   return (
     <PageWrapper>
@@ -21,78 +53,102 @@ const Profile = () => {
           </p>
 
           <div className="space-y-8">
-            {/* Headshot Upload */}
+            {/* Avatar Upload */}
             <div>
               <label className="text-xs uppercase tracking-widest text-muted-foreground mb-3 block">Headshot</label>
               <label className="flex items-center gap-3 border border-dashed border-border rounded-md p-4 cursor-pointer hover:border-primary transition-colors">
-                {headshot ? (
+                {uploadingAvatar ? (
                   <div className="flex items-center gap-2">
-                    <User size={20} className="text-primary" />
-                    <span className="text-sm text-foreground">{headshot}</span>
+                    <Loader2 size={20} className="animate-spin text-primary" />
+                    <span className="text-sm text-muted-foreground">Uploading...</span>
+                  </div>
+                ) : user.avatar ? (
+                  <div className="flex items-center gap-3">
+                    <img src={user.avatar} alt="avatar" className="w-10 h-10 rounded-full object-cover" />
+                    <span className="text-sm text-muted-foreground">Click to change</span>
                   </div>
                 ) : (
                   <div className="flex items-center gap-2 text-muted-foreground">
-                    <Upload size={20} />
+                    <User size={20} />
                     <span className="text-sm">Upload headshot image</span>
                   </div>
                 )}
-                <input type="file" accept="image/*" className="hidden" onChange={(e) => setHeadshot(e.target.files?.[0]?.name || null)} />
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleAvatarUpload(file);
+                  }}
+                />
               </label>
             </div>
 
-            {/* Resume Upload */}
+            {/* Name */}
             <div>
-              <label className="text-xs uppercase tracking-widest text-muted-foreground mb-3 block">Resume</label>
-              <label className="flex items-center gap-3 border border-dashed border-border rounded-md p-4 cursor-pointer hover:border-primary transition-colors">
-                {resume ? (
-                  <div className="flex items-center gap-2">
-                    <FileText size={20} className="text-primary" />
-                    <span className="text-sm text-foreground">{resume}</span>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <Upload size={20} />
-                    <span className="text-sm">Upload resume (PDF)</span>
-                  </div>
-                )}
-                <input type="file" accept=".pdf" className="hidden" onChange={(e) => setResume(e.target.files?.[0]?.name || null)} />
-              </label>
+              <label className="text-xs uppercase tracking-widest text-muted-foreground mb-2 block">Name</label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  defaultValue={user.name}
+                  onBlur={(e) => handleBlurSave("name", e.target.value)}
+                  className="flex-1 bg-transparent scarlet-input px-0 py-3 text-foreground text-sm placeholder:text-muted-foreground focus:outline-none"
+                  placeholder="Your full name"
+                />
+                {saved.name && <CheckCircle size={14} className="text-green-400 shrink-0" />}
+              </div>
             </div>
 
             {/* Major */}
             <div>
               <label className="text-xs uppercase tracking-widest text-muted-foreground mb-2 block">Major</label>
-              <input
-                type="text"
-                defaultValue={user.major || ""}
-                onBlur={(e) => updateProfile({ major: e.target.value })}
-                className="w-full bg-transparent scarlet-input px-0 py-3 text-foreground text-sm placeholder:text-muted-foreground focus:outline-none"
-                placeholder="e.g. Finance"
-              />
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  defaultValue={user.major ?? ""}
+                  onBlur={(e) => handleBlurSave("major", e.target.value)}
+                  className="flex-1 bg-transparent scarlet-input px-0 py-3 text-foreground text-sm placeholder:text-muted-foreground focus:outline-none"
+                  placeholder="e.g. Finance"
+                />
+                {saved.major && <CheckCircle size={14} className="text-green-400 shrink-0" />}
+              </div>
             </div>
 
             {/* Grad Year */}
             <div>
               <label className="text-xs uppercase tracking-widest text-muted-foreground mb-2 block">Graduation Year</label>
-              <input
-                type="text"
-                defaultValue={user.gradYear || ""}
-                onBlur={(e) => updateProfile({ gradYear: e.target.value })}
-                className="w-full bg-transparent scarlet-input px-0 py-3 text-foreground text-sm placeholder:text-muted-foreground focus:outline-none"
-                placeholder="e.g. 2026"
-              />
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  defaultValue={user.gradYear ?? ""}
+                  onBlur={(e) => handleBlurSave("gradYear", e.target.value)}
+                  className="flex-1 bg-transparent scarlet-input px-0 py-3 text-foreground text-sm placeholder:text-muted-foreground focus:outline-none"
+                  placeholder="e.g. 2026"
+                />
+                {saved.gradYear && <CheckCircle size={14} className="text-green-400 shrink-0" />}
+              </div>
             </div>
 
             {/* LinkedIn */}
             <div>
               <label className="text-xs uppercase tracking-widest text-muted-foreground mb-2 block">LinkedIn URL</label>
-              <input
-                type="url"
-                defaultValue={user.linkedinUrl || ""}
-                onBlur={(e) => updateProfile({ linkedinUrl: e.target.value })}
-                className="w-full bg-transparent scarlet-input px-0 py-3 text-foreground text-sm placeholder:text-muted-foreground focus:outline-none"
-                placeholder="https://linkedin.com/in/yourname"
-              />
+              <div className="flex items-center gap-2">
+                <input
+                  type="url"
+                  defaultValue={user.linkedinUrl ?? ""}
+                  onBlur={(e) => handleBlurSave("linkedinUrl", e.target.value)}
+                  className="flex-1 bg-transparent scarlet-input px-0 py-3 text-foreground text-sm placeholder:text-muted-foreground focus:outline-none"
+                  placeholder="https://linkedin.com/in/yourname"
+                />
+                {saved.linkedinUrl && <CheckCircle size={14} className="text-green-400 shrink-0" />}
+              </div>
+            </div>
+
+            {/* Email (read-only) */}
+            <div>
+              <label className="text-xs uppercase tracking-widest text-muted-foreground mb-2 block">Email</label>
+              <p className="py-3 text-sm text-muted-foreground">{user.email}</p>
             </div>
           </div>
         </div>

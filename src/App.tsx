@@ -16,11 +16,15 @@ import Profile from "./pages/Profile";
 import Apply from "./pages/Apply";
 import AdminRecruiting from "./pages/AdminRecruiting";
 import AdminContent from "./pages/AdminContent";
+import AdminMembers from "./pages/AdminMembers";
+import AdminUsers from "./pages/AdminUsers";
+import Dues from "./pages/Dues";
 import Onboarding from "./pages/Onboarding";
 import Portal from "./pages/Portal";
 import MyProjects from "./pages/MyProjects";
 import ProjectDetail from "./pages/ProjectDetail";
 import CalendarPage from "./pages/Calendar";
+import AuthCallback from "./pages/AuthCallback";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -46,11 +50,15 @@ const App = () => (
                 <Route path="/apply" element={<Apply />} />
                 <Route path="/admin/recruiting" element={<AdminRecruiting />} />
                 <Route path="/admin/content" element={<AdminContent />} />
+                <Route path="/admin/members" element={<AdminMembers />} />
+                <Route path="/admin/users" element={<AdminUsers />} />
+                <Route path="/dues" element={<Dues />} />
                 <Route path="/onboarding" element={<Onboarding />} />
                 <Route path="/portal" element={<Portal />} />
                 <Route path="/my-projects" element={<MyProjects />} />
                 <Route path="/my-projects/:id" element={<ProjectDetail />} />
                 <Route path="/calendar" element={<CalendarPage />} />
+                <Route path="/auth/callback" element={<AuthCallback />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </div>
