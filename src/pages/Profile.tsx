@@ -1,15 +1,42 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Navigate } from "react-router-dom";
 import PageWrapper from "@/components/PageWrapper";
 import { Upload, FileText, User } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
+
+function markProfileComplete(email: string) {
+  try {
+    const raw = localStorage.getItem("pevc_profile_complete");
+    const set: string[] = raw ? JSON.parse(raw) : [];
+    if (!set.includes(email)) {
+      localStorage.setItem("pevc_profile_complete", JSON.stringify([...set, email]));
+    }
+  } catch {
+    // ignore
+  }
+}
 
 const Profile = () => {
   const { user, isAuthenticated, updateProfile } = useAuth();
+  const navigate = useNavigate();
+
   const [headshot, setHeadshot] = useState<string | null>(null);
   const [resume, setResume] = useState<string | null>(null);
+  const [major, setMajor] = useState(user?.major ?? "");
+  const [gradYear, setGradYear] = useState(user?.gradYear ?? "");
+  const [linkedinUrl, setLinkedinUrl] = useState(user?.linkedinUrl ?? "");
 
   if (!isAuthenticated || !user) return <Navigate to="/login" replace />;
+
+  const handleSave = () => {
+    updateProfile({ major, gradYear, linkedinUrl });
+    markProfileComplete(user.email);
+    toast.success("Profile saved!");
+    navigate("/portal");
+  };
 
   return (
     <PageWrapper>
@@ -23,7 +50,9 @@ const Profile = () => {
           <div className="space-y-8">
             {/* Headshot Upload */}
             <div>
-              <label className="text-xs uppercase tracking-widest text-muted-foreground mb-3 block">Headshot</label>
+              <label className="text-xs uppercase tracking-widest text-muted-foreground mb-3 block">
+                Headshot
+              </label>
               <label className="flex items-center gap-3 border border-dashed border-border rounded-md p-4 cursor-pointer hover:border-primary transition-colors">
                 {headshot ? (
                   <div className="flex items-center gap-2">
@@ -36,13 +65,20 @@ const Profile = () => {
                     <span className="text-sm">Upload headshot image</span>
                   </div>
                 )}
-                <input type="file" accept="image/*" className="hidden" onChange={(e) => setHeadshot(e.target.files?.[0]?.name || null)} />
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => setHeadshot(e.target.files?.[0]?.name || null)}
+                />
               </label>
             </div>
 
             {/* Resume Upload */}
             <div>
-              <label className="text-xs uppercase tracking-widest text-muted-foreground mb-3 block">Resume</label>
+              <label className="text-xs uppercase tracking-widest text-muted-foreground mb-3 block">
+                Resume
+              </label>
               <label className="flex items-center gap-3 border border-dashed border-border rounded-md p-4 cursor-pointer hover:border-primary transition-colors">
                 {resume ? (
                   <div className="flex items-center gap-2">
@@ -55,17 +91,24 @@ const Profile = () => {
                     <span className="text-sm">Upload resume (PDF)</span>
                   </div>
                 )}
-                <input type="file" accept=".pdf" className="hidden" onChange={(e) => setResume(e.target.files?.[0]?.name || null)} />
+                <input
+                  type="file"
+                  accept=".pdf"
+                  className="hidden"
+                  onChange={(e) => setResume(e.target.files?.[0]?.name || null)}
+                />
               </label>
             </div>
 
             {/* Major */}
             <div>
-              <label className="text-xs uppercase tracking-widest text-muted-foreground mb-2 block">Major</label>
+              <label className="text-xs uppercase tracking-widest text-muted-foreground mb-2 block">
+                Major
+              </label>
               <input
                 type="text"
-                defaultValue={user.major || ""}
-                onBlur={(e) => updateProfile({ major: e.target.value })}
+                value={major}
+                onChange={(e) => setMajor(e.target.value)}
                 className="w-full bg-transparent scarlet-input px-0 py-3 text-foreground text-sm placeholder:text-muted-foreground focus:outline-none"
                 placeholder="e.g. Finance"
               />
@@ -73,11 +116,13 @@ const Profile = () => {
 
             {/* Grad Year */}
             <div>
-              <label className="text-xs uppercase tracking-widest text-muted-foreground mb-2 block">Graduation Year</label>
+              <label className="text-xs uppercase tracking-widest text-muted-foreground mb-2 block">
+                Graduation Year
+              </label>
               <input
                 type="text"
-                defaultValue={user.gradYear || ""}
-                onBlur={(e) => updateProfile({ gradYear: e.target.value })}
+                value={gradYear}
+                onChange={(e) => setGradYear(e.target.value)}
                 className="w-full bg-transparent scarlet-input px-0 py-3 text-foreground text-sm placeholder:text-muted-foreground focus:outline-none"
                 placeholder="e.g. 2026"
               />
@@ -85,15 +130,21 @@ const Profile = () => {
 
             {/* LinkedIn */}
             <div>
-              <label className="text-xs uppercase tracking-widest text-muted-foreground mb-2 block">LinkedIn URL</label>
+              <label className="text-xs uppercase tracking-widest text-muted-foreground mb-2 block">
+                LinkedIn URL
+              </label>
               <input
                 type="url"
-                defaultValue={user.linkedinUrl || ""}
-                onBlur={(e) => updateProfile({ linkedinUrl: e.target.value })}
+                value={linkedinUrl}
+                onChange={(e) => setLinkedinUrl(e.target.value)}
                 className="w-full bg-transparent scarlet-input px-0 py-3 text-foreground text-sm placeholder:text-muted-foreground focus:outline-none"
                 placeholder="https://linkedin.com/in/yourname"
               />
             </div>
+
+            <Button onClick={handleSave} className="w-full sm:w-auto">
+              Save Changes
+            </Button>
           </div>
         </div>
       </section>

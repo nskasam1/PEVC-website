@@ -13,12 +13,26 @@ const Login = () => {
   const { login, setRole, isAuthenticated } = useAuth();
   const navigate = useNavigate();
 
+  const isProfileComplete = (emailAddr: string): boolean => {
+    try {
+      const raw = localStorage.getItem("pevc_profile_complete");
+      const set: string[] = raw ? JSON.parse(raw) : [];
+      return set.includes(emailAddr);
+    } catch {
+      return false;
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     login(email, password);
     setTimeout(() => {
       setRole(selectedRole);
-      navigate("/profile");
+      if (selectedRole === "Applicant") {
+        navigate("/apply");
+      } else {
+        navigate(isProfileComplete(email) ? "/portal" : "/profile");
+      }
     }, 100);
   };
 

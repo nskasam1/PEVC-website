@@ -38,6 +38,9 @@ const Navbar = () => {
       navLinks.push({ label: "My Projects", path: "/my-projects" });
       navLinks.push({ label: "Calendar", path: "/calendar" });
     }
+    if (user.role === "Applicant") {
+      navLinks.push({ label: "Apply", path: "/apply" });
+    }
     if (["PM", "Member", "Client"].includes(user.role)) {
       navLinks.push({ label: "Portal", path: "/portal" });
     }
