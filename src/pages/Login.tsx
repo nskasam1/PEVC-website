@@ -18,12 +18,18 @@ const Login = () => {
   const { login, signUp, isAuthenticated, loading: authLoading } = useAuth();
   const navigate = useNavigate();
 
-  // Navigate as soon as session is confirmed — avoids race with async profile load
+  // Wait for user profile to load (role is set) before redirecting
   useEffect(() => {
-    if (!authLoading && isAuthenticated) {
-      navigate("/profile", { replace: true });
+    if (authLoading || !user) return;
+    if (user.role === "Admin") {
+      navigate("/admin/recruiting", { replace: true });
+    } else if (user.role === "Member") {
+      navigate("/portal", { replace: true });
+    } else {
+      // Applicant (and any unknown role)
+      navigate("/apply", { replace: true });
     }
-  }, [isAuthenticated, authLoading, navigate]);
+  }, [user, authLoading, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
