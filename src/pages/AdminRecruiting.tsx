@@ -1,489 +1,388 @@
-import { useState, useMemo, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Navigate } from "react-router-dom";
 import PageWrapper from "@/components/PageWrapper";
 import { toast } from "@/hooks/use-toast";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
-  ChevronRight, ChevronDown, User, Calendar, FileText,
-  ExternalLink, Plus, X, Upload, Download,
+  ChevronRight, ChevronDown, User, Loader2, Eye,
+  CheckCircle, XCircle, RotateCcw, X,
 } from "lucide-react";
 import {
-  getApplications, getFileById, getRecruitingConfig, saveRecruitingConfig,
-  getEssayPrompts, saveEssayPrompts, readFileAsBase64, formatDeadline,
-} from "@/lib/applicationStorage";
-import { Application, CaseMaterial, RecruitingConfig, Stage, StageResource } from "@/types/application";
+  getAllApplicants, getApplicationsByApplicantIds,
+  advanceApplicant, setApplicantStatus,
+} from "@/lib/api/applicants";
+import type { Applicant, Application, EssayAnswer } from "@/lib/database.types";
 
-type PipelineStage = "Application" | "Round 1" | "Round 2";
+type RoundKey = "r0" | "r1" | "r2";
+const ROUNDS: RoundKey[] = ["r0", "r1", "r2"];
+const ROUND_LABELS: Record<RoundKey, string> = { r0: "Application", r1: "Round 1", r2: "Round 2" };
+const NEXT_ROUND: Record<RoundKey, RoundKey | null> = { r0: "r1", r1: "r2", r2: null };
 
-interface Candidate extends Application {
-  stage: PipelineStage;
-}
-
-const STAGES: PipelineStage[] = ["Application", "Round 1", "Round 2"];
-
-const WEBHOOK_MESSAGES: Record<string, string> = {
-  Application: "Applied -> Confirmation",
-  "Round 1": "Invited -> Scheduling Link",
-  "Round 2": "Invited -> Final Round Scheduling",
-};
-
-// ── Candidate Card ────────────────────────────────────────────────────────────
-
-const CandidateCard = ({
-  candidate,
+// ─── Application detail modal ──────────────────────────────────
+const AppDetailModal = ({
+  applicant,
+  application,
+  onClose,
   onAdvance,
-  onView,
+  onAccept,
+  onReject,
+  actionLoading,
 }: {
-  candidate: Candidate;
-  onAdvance: (c: Candidate) => void;
-  onView: (c: Candidate) => void;
+  applicant: Applicant;
+  application: Application | null;
+  onClose: () => void;
+  onAdvance: () => void;
+  onAccept: () => void;
+  onReject: () => void;
+  actionLoading: boolean;
 }) => {
-  const stage = candidate.stage;
+  const essays = (application?.essay_answers as unknown as EssayAnswer[]) ?? [];
+  const nextRound = NEXT_ROUND[applicant.current_round];
+  const isPending = applicant.status === "pending";
+
   return (
-    <div className="border border-border rounded-lg p-4 bg-card glow-border">
-      <button className="flex items-center gap-3 mb-3 w-full text-left" onClick={() => onView(candidate)}>
-        <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center shrink-0">
-          <User size={14} className="text-muted-foreground" />
-        </div>
-        <div className="min-w-0">
-          <p className="text-sm font-semibold text-foreground truncate">{candidate.firstName} {candidate.lastName}</p>
-          <p className="text-xs text-muted-foreground truncate">{candidate.email}</p>
-        </div>
-      </button>
-      <div className="text-xs text-muted-foreground mb-3 space-y-0.5">
-        <p>{candidate.school}</p>
-        <p>{candidate.major} · {candidate.gradYear}</p>
-      </div>
-      {(stage === "Round 1" || stage === "Round 2") && (
-        <div className="flex items-center gap-1.5 mb-3 text-xs text-primary">
-          <Calendar size={12} />
-          <span>Interview scheduling sent</span>
-        </div>
-      )}
-      <div className="flex items-center gap-3">
-        <button onClick={() => onView(candidate)} className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2">
-          View application
-        </button>
-        {STAGES.indexOf(stage) < STAGES.length - 1 && (
-          <button onClick={() => onAdvance(candidate)} className="flex items-center gap-1 text-xs font-semibold text-primary hover:underline ml-auto">
-            Advance to {STAGES[STAGES.indexOf(stage) + 1]}
-            <ChevronRight size={14} />
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="bg-card border border-border rounded-lg w-full max-w-2xl mx-4 p-6 max-h-[85vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h3 className="text-lg font-bold text-foreground">{applicant.name}</h3>
+            <p className="text-sm text-muted-foreground">{applicant.email}</p>
+          </div>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
+            <X size={18} />
           </button>
+        </div>
+
+        {/* Status + Round badges */}
+        <div className="flex gap-2 mb-6">
+          <span className="text-xs bg-secondary px-2.5 py-1 rounded-full text-muted-foreground">
+            {ROUND_LABELS[applicant.current_round]}
+          </span>
+          <span className={`text-xs px-2.5 py-1 rounded-full ${
+            applicant.status === "accepted" ? "bg-green-500/10 text-green-400" :
+            applicant.status === "rejected" ? "bg-destructive/10 text-destructive" :
+            "bg-primary/10 text-primary"
+          }`}>
+            {applicant.status}
+          </span>
+        </div>
+
+        {/* Application data */}
+        {application && (
+          <div className="space-y-4 mb-6">
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              {[
+                ["School", application.school],
+                ["Major", application.major],
+                ["Year", application.year],
+                ["GPA", application.gpa],
+                ["Phone", application.phone],
+              ].filter(([, v]) => v).map(([label, value]) => (
+                <div key={label}>
+                  <span className="text-xs text-muted-foreground uppercase tracking-widest">{label}</span>
+                  <p className="text-foreground">{value}</p>
+                </div>
+              ))}
+            </div>
+
+            {application.linkedin_url && (
+              <a
+                href={application.linkedin_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm text-primary hover:underline"
+              >
+                LinkedIn Profile →
+              </a>
+            )}
+
+            {application.resume_url && (
+              <a
+                href={application.resume_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-block text-sm text-primary border border-primary/30 px-3 py-1.5 rounded hover:bg-primary/5 transition-colors"
+              >
+                Download Resume
+              </a>
+            )}
+
+            {essays.length > 0 && (
+              <div className="space-y-4 border-t border-border pt-4">
+                {essays.map((ea, i) => (
+                  <div key={i}>
+                    <p className="text-xs text-muted-foreground uppercase tracking-widest mb-1">
+                      Q{i + 1}: {ea.question_text}
+                    </p>
+                    <p className="text-sm text-foreground whitespace-pre-wrap">{ea.answer}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Actions */}
+        {isPending && (
+          <div className="flex flex-wrap gap-2 border-t border-border pt-4">
+            {nextRound && (
+              <button
+                disabled={actionLoading}
+                onClick={onAdvance}
+                className="flex items-center gap-1.5 bg-primary text-primary-foreground px-4 py-2 rounded-md text-sm font-semibold hover:bg-primary/90 transition-colors disabled:opacity-40"
+              >
+                {actionLoading ? <Loader2 size={13} className="animate-spin" /> : <ChevronRight size={13} />}
+                Advance to {ROUND_LABELS[nextRound]}
+              </button>
+            )}
+            <button
+              disabled={actionLoading}
+              onClick={onAccept}
+              className="flex items-center gap-1.5 bg-green-600 text-white px-4 py-2 rounded-md text-sm font-semibold hover:bg-green-500 transition-colors disabled:opacity-40"
+            >
+              <CheckCircle size={13} /> Accept
+            </button>
+            <button
+              disabled={actionLoading}
+              onClick={onReject}
+              className="flex items-center gap-1.5 border border-destructive text-destructive px-4 py-2 rounded-md text-sm font-semibold hover:bg-destructive/5 transition-colors disabled:opacity-40"
+            >
+              <XCircle size={13} /> Reject
+            </button>
+          </div>
         )}
       </div>
     </div>
   );
 };
 
-// ── Application Detail Sheet ──────────────────────────────────────────────────
-
-const ApplicationSheet = ({
-  candidate,
-  open,
-  onClose,
+// ─── Candidate card ────────────────────────────────────────────
+const CandidateCard = ({
+  applicant,
+  onView,
 }: {
-  candidate: Candidate | null;
-  open: boolean;
-  onClose: () => void;
-}) => {
-  if (!candidate) return null;
-  const resumeFile = candidate.resumeFileId ? getFileById(candidate.resumeFileId) : undefined;
-
-  return (
-    <Sheet open={open} onOpenChange={onClose}>
-      <SheetContent className="w-full sm:max-w-xl overflow-y-auto">
-        <SheetHeader className="mb-6">
-          <SheetTitle>{candidate.firstName} {candidate.lastName}</SheetTitle>
-          <p className="text-sm text-muted-foreground">{candidate.email}</p>
-        </SheetHeader>
-        <div className="space-y-6 text-sm">
-          <div>
-            <p className="text-xs uppercase tracking-widest text-muted-foreground mb-2">Personal Info</p>
-            <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-foreground">
-              <span className="text-muted-foreground">Phone</span><span>{candidate.phone}</span>
-              <span className="text-muted-foreground">School</span><span>{candidate.school}</span>
-              <span className="text-muted-foreground">Major</span><span>{candidate.major}</span>
-              <span className="text-muted-foreground">Grad Year</span><span>{candidate.gradYear}</span>
-              <span className="text-muted-foreground">LinkedIn</span>
-              <a href={candidate.linkedinUrl} target="_blank" rel="noopener noreferrer" className="text-primary flex items-center gap-1 hover:underline truncate">
-                Profile <ExternalLink size={11} />
-              </a>
-              <span className="text-muted-foreground">Stage</span>
-              <span className="text-primary font-semibold">{candidate.stage}</span>
-              <span className="text-muted-foreground">Submitted</span>
-              <span>{new Date(candidate.submittedAt).toLocaleDateString()}</span>
-            </div>
-          </div>
-          <div className="border-t border-border pt-4">
-            <p className="text-xs uppercase tracking-widest text-muted-foreground mb-2">Resume</p>
-            {resumeFile ? (
-              <a href={resumeFile.base64Data} download={resumeFile.name} className="flex items-center gap-2 text-primary hover:underline">
-                <FileText size={14} />{resumeFile.name}
-              </a>
-            ) : (
-              <p className="text-muted-foreground italic">Not available</p>
-            )}
-          </div>
-          <div className="border-t border-border pt-4">
-            <p className="text-xs uppercase tracking-widest text-muted-foreground mb-1">Essay 1</p>
-            <p className="text-xs text-muted-foreground italic mb-2">{candidate.essay1Prompt}</p>
-            <p className="text-foreground whitespace-pre-wrap break-words leading-relaxed">{candidate.essay1}</p>
-          </div>
-          <div className="border-t border-border pt-4">
-            <p className="text-xs uppercase tracking-widest text-muted-foreground mb-1">Essay 2</p>
-            <p className="text-xs text-muted-foreground italic mb-2">{candidate.essay2Prompt}</p>
-            <p className="text-foreground whitespace-pre-wrap break-words leading-relaxed">{candidate.essay2}</p>
-          </div>
-        </div>
-      </SheetContent>
-    </Sheet>
-  );
-};
-
-// ── Configure Tab ─────────────────────────────────────────────────────────────
-
-const ConfigureTab = () => {
-  const [config, setConfig] = useState<RecruitingConfig>(getRecruitingConfig);
-  const [prompts, setPrompts] = useState(getEssayPrompts);
-  const [newResource, setNewResource] = useState<Record<string, { label: string; url: string }>>({
-    "Round 1": { label: "", url: "" },
-    "Round 2": { label: "", url: "" },
-  });
-  const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
-
-  const updateStage = (stage: PipelineStage, updates: Partial<RecruitingConfig["stages"][PipelineStage]>) => {
-    setConfig((prev) => ({
-      ...prev,
-      stages: { ...prev.stages, [stage]: { ...prev.stages[stage], ...updates } },
-    }));
-  };
-
-  const handleSave = () => {
-    saveRecruitingConfig(config);
-    saveEssayPrompts(prompts);
-    toast({ title: "Configuration saved", description: "Changes are live for applicants immediately." });
-  };
-
-  const handleCaseUpload = async (stage: "Round 1" | "Round 2", file: File) => {
-    const allowed = ["application/pdf", "application/vnd.ms-powerpoint", "application/vnd.openxmlformats-officedocument.presentationml.presentation"];
-    if (!allowed.includes(file.type)) {
-      toast({ title: "Invalid file", description: "Only PDF or PPTX files are accepted.", variant: "destructive" });
-      return;
-    }
-    if (file.size > 20 * 1024 * 1024) {
-      toast({ title: "File too large", description: "Case materials must be under 20 MB.", variant: "destructive" });
-      return;
-    }
-    try {
-      const base64Data = await readFileAsBase64(file);
-      const material: CaseMaterial = {
-        id: Date.now().toString(),
-        name: file.name.replace(/[^a-zA-Z0-9._\-]/g, "_"),
-        base64Data,
-        uploadedAt: new Date().toISOString(),
-      };
-      updateStage(stage, {
-        caseMaterials: [...(config.stages[stage].caseMaterials ?? []), material],
-      });
-      toast({ title: "File added", description: material.name });
-    } catch {
-      toast({ title: "Upload failed", description: "Could not read the file.", variant: "destructive" });
-    }
-  };
-
-  const removeCaseMaterial = (stage: "Round 1" | "Round 2", id: string) => {
-    updateStage(stage, {
-      caseMaterials: (config.stages[stage].caseMaterials ?? []).filter((m) => m.id !== id),
-    });
-  };
-
-  const addResource = (stage: "Round 1" | "Round 2") => {
-    const r = newResource[stage];
-    if (!r.label || !r.url) return;
-    const resource: StageResource = { id: Date.now().toString(), label: r.label, url: r.url };
-    updateStage(stage, { resources: [...(config.stages[stage].resources ?? []), resource] });
-    setNewResource((prev) => ({ ...prev, [stage]: { label: "", url: "" } }));
-  };
-
-  const removeResource = (stage: "Round 1" | "Round 2", id: string) => {
-    updateStage(stage, { resources: (config.stages[stage].resources ?? []).filter((r) => r.id !== id) });
-  };
-
-  return (
-    <div className="space-y-10">
-
-      {/* Essay Prompts */}
-      <div>
-        <h3 className="text-sm font-bold uppercase tracking-widest text-foreground mb-4">Essay Prompts</h3>
-        <div className="space-y-4">
-          {(["essay1", "essay2"] as const).map((key, i) => (
-            <div key={key}>
-              <label className="text-xs uppercase tracking-widest text-muted-foreground mb-2 block">Essay {i + 1}</label>
-              <textarea
-                value={prompts[key]}
-                onChange={(e) => setPrompts((p) => ({ ...p, [key]: e.target.value }))}
-                rows={3}
-                className="w-full bg-card border border-border rounded-md p-3 text-sm text-foreground placeholder:text-muted-foreground focus:ring-1 focus:ring-primary focus:outline-none resize-none"
-              />
-            </div>
-          ))}
-        </div>
+  applicant: Applicant;
+  onView: () => void;
+}) => (
+  <div className="border border-border rounded-lg p-4 bg-card glow-border">
+    <div className="flex items-center gap-3 mb-3">
+      <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center shrink-0">
+        <User size={14} className="text-muted-foreground" />
       </div>
-
-      {/* Per-Stage Config */}
-      {STAGES.map((stage) => {
-        const sc = config.stages[stage];
-        const isInterview = stage === "Round 1" || stage === "Round 2";
-        return (
-          <div key={stage} className="border border-border rounded-lg p-5 space-y-5">
-            <h3 className="text-sm font-bold uppercase tracking-widest text-foreground">{stage}</h3>
-
-            {/* Dates */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="text-xs uppercase tracking-widest text-muted-foreground mb-2 block">Application Deadline</label>
-                <Input
-                  type="date"
-                  value={sc.deadline}
-                  onChange={(e) => updateStage(stage, { deadline: e.target.value })}
-                  className="bg-card border-border"
-                />
-              </div>
-              <div>
-                <label className="text-xs uppercase tracking-widest text-muted-foreground mb-2 block">Hear Back By</label>
-                <Input
-                  type="date"
-                  value={sc.hearBackBy}
-                  onChange={(e) => updateStage(stage, { hearBackBy: e.target.value })}
-                  className="bg-card border-border"
-                />
-              </div>
-            </div>
-
-            {/* Calendly + Materials (R1/R2 only) */}
-            {isInterview && (
-              <>
-                <div>
-                  <label className="text-xs uppercase tracking-widest text-muted-foreground mb-2 block">Calendly URL</label>
-                  <Input
-                    type="url"
-                    placeholder="https://calendly.com/your-link"
-                    value={sc.calendlyUrl ?? ""}
-                    onChange={(e) => updateStage(stage as "Round 1" | "Round 2", { calendlyUrl: e.target.value })}
-                    className="bg-card border-border"
-                  />
-                </div>
-
-                {/* Case Materials */}
-                <div>
-                  <label className="text-xs uppercase tracking-widest text-muted-foreground mb-2 block">Case Materials (PDF / PPTX)</label>
-                  <div className="space-y-2 mb-3">
-                    {(sc.caseMaterials ?? []).map((m) => (
-                      <div key={m.id} className="flex items-center justify-between border border-border rounded-md px-3 py-2 bg-card/50">
-                        <a href={m.base64Data} download={m.name} className="flex items-center gap-2 text-sm text-primary hover:underline">
-                          <Download size={13} />{m.name}
-                        </a>
-                        <button onClick={() => removeCaseMaterial(stage as "Round 1" | "Round 2", m.id)} className="text-muted-foreground hover:text-destructive transition-colors">
-                          <X size={14} />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                  <label className="flex items-center gap-2 border border-dashed border-border hover:border-primary/60 rounded-md px-4 py-3 cursor-pointer transition-colors text-sm text-muted-foreground hover:text-foreground">
-                    <Upload size={16} />
-                    Upload PDF or PPTX
-                    <input
-                      ref={(el) => { fileInputRefs.current[stage] = el; }}
-                      type="file"
-                      accept=".pdf,.ppt,.pptx"
-                      className="hidden"
-                      onChange={(e) => {
-                        const f = e.target.files?.[0];
-                        if (f) handleCaseUpload(stage as "Round 1" | "Round 2", f);
-                        e.target.value = "";
-                      }}
-                    />
-                  </label>
-                </div>
-
-                {/* Prep Resources */}
-                <div>
-                  <label className="text-xs uppercase tracking-widest text-muted-foreground mb-2 block">Prep Resources</label>
-                  <div className="space-y-2 mb-3">
-                    {(sc.resources ?? []).map((r) => (
-                      <div key={r.id} className="flex items-center justify-between border border-border rounded-md px-3 py-2 bg-card/50">
-                        <a href={r.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm text-primary hover:underline">
-                          <ExternalLink size={13} />{r.label}
-                        </a>
-                        <button onClick={() => removeResource(stage as "Round 1" | "Round 2", r.id)} className="text-muted-foreground hover:text-destructive transition-colors">
-                          <X size={14} />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="flex gap-2">
-                    <Input
-                      placeholder="Link label"
-                      value={newResource[stage]?.label ?? ""}
-                      onChange={(e) => setNewResource((p) => ({ ...p, [stage]: { ...p[stage], label: e.target.value } }))}
-                      className="bg-card border-border"
-                    />
-                    <Input
-                      placeholder="https://..."
-                      value={newResource[stage]?.url ?? ""}
-                      onChange={(e) => setNewResource((p) => ({ ...p, [stage]: { ...p[stage], url: e.target.value } }))}
-                      className="bg-card border-border"
-                    />
-                    <Button type="button" size="icon" variant="outline" onClick={() => addResource(stage as "Round 1" | "Round 2")}>
-                      <Plus size={16} />
-                    </Button>
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
-        );
-      })}
-
-      <Button onClick={handleSave} className="w-full sm:w-auto">Save Configuration</Button>
+      <div className="min-w-0">
+        <p className="text-sm font-semibold text-foreground truncate">{applicant.name}</p>
+        <p className="text-xs text-muted-foreground truncate">{applicant.email}</p>
+      </div>
     </div>
-  );
-};
+    <div className="flex items-center justify-between">
+      <span className={`text-xs px-2 py-0.5 rounded-full ${
+        applicant.status === "accepted" ? "bg-green-500/10 text-green-400" :
+        applicant.status === "rejected" ? "bg-destructive/10 text-destructive" :
+        "bg-primary/10 text-primary"
+      }`}>
+        {applicant.status}
+      </span>
+      <button
+        onClick={onView}
+        className="flex items-center gap-1 text-xs font-semibold text-muted-foreground hover:text-primary transition-colors"
+      >
+        <Eye size={12} /> View
+      </button>
+    </div>
+  </div>
+);
 
-// ── Main Component ────────────────────────────────────────────────────────────
-
+// ─── Main page ─────────────────────────────────────────────────
 const AdminRecruiting = () => {
   const { user, isAuthenticated } = useAuth();
-  const [openStage, setOpenStage] = useState<PipelineStage | null>("Application");
-  const [selectedCandidate, setSelectedCandidate] = useState<Candidate | null>(null);
-  const config = getRecruitingConfig();
-
-  const [stageOverrides, setStageOverrides] = useState<Record<string, PipelineStage>>(() => {
-    try {
-      const raw = localStorage.getItem("pevc_stage_overrides");
-      return raw ? JSON.parse(raw) : {};
-    } catch { return {}; }
-  });
+  const [applicants, setApplicants] = useState<Applicant[]>([]);
+  const [applications, setApplications] = useState<Application[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [openStage, setOpenStage] = useState<RoundKey | null>("r0");
+  const [selected, setSelected] = useState<{ applicant: Applicant; application: Application | null } | null>(null);
+  const [actionLoading, setActionLoading] = useState(false);
 
   if (!isAuthenticated || user?.role !== "Admin") return <Navigate to="/login" replace />;
 
-  const candidates: Candidate[] = useMemo(() => {
-    return getApplications().map((app) => ({
-      ...app,
-      stage: (stageOverrides[app.id] ?? "Application") as PipelineStage,
-    }));
-  }, [stageOverrides]);
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const aps = await getAllApplicants();
+      setApplicants(aps);
+      const apps = await getApplicationsByApplicantIds(aps.map((a) => a.id));
+      setApplications(apps);
+    } catch (e) {
+      toast({ title: "Error loading data", description: String(e), variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-  const advance = (candidate: Candidate) => {
-    const idx = STAGES.indexOf(candidate.stage);
-    if (idx >= STAGES.length - 1) return;
-    const nextStage = STAGES[idx + 1];
-    const updated = { ...stageOverrides, [candidate.id]: nextStage };
-    setStageOverrides(updated);
-    try { localStorage.setItem("pevc_stage_overrides", JSON.stringify(updated)); } catch { /* ignore */ }
-    toast({ title: "Candidate Advanced", description: `Simulated SendGrid Webhook Fired: ${WEBHOOK_MESSAGES[nextStage]}` });
-    localStorage.setItem("pevc_scheduling", nextStage);
+  useEffect(() => { loadData(); }, [loadData]);
+
+  const openDetail = (applicant: Applicant) => {
+    const app = applications.find((a) => a.applicant_id === applicant.id) ?? null;
+    setSelected({ applicant, application: app });
   };
 
-  const emptyMessage = (stage: PipelineStage) =>
-    stage === "Application"
-      ? "No applications yet. Share the /apply link to start receiving submissions."
-      : `No candidates in ${stage} yet.`;
+  const handleAdvance = async () => {
+    if (!selected) return;
+    const nextRound = NEXT_ROUND[selected.applicant.current_round];
+    if (!nextRound) return;
+    setActionLoading(true);
+    try {
+      await advanceApplicant(selected.applicant.id, nextRound);
+      toast({ title: "Advanced", description: `${selected.applicant.name} moved to ${ROUND_LABELS[nextRound]}` });
+      setSelected(null);
+      await loadData();
+    } catch (e) {
+      toast({ title: "Error", description: String(e), variant: "destructive" });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleStatusChange = async (status: "accepted" | "rejected") => {
+    if (!selected) return;
+    setActionLoading(true);
+    try {
+      await setApplicantStatus(selected.applicant.id, status);
+      toast({ title: status === "accepted" ? "Accepted" : "Rejected", description: selected.applicant.name });
+      setSelected(null);
+      await loadData();
+    } catch (e) {
+      toast({ title: "Error", description: String(e), variant: "destructive" });
+    } finally {
+      setActionLoading(false);
+    }
+  };
 
   return (
     <PageWrapper>
       <section className="min-h-screen pt-28 pb-20 px-6">
         <div className="max-w-6xl mx-auto">
-          <h1 className="text-3xl font-bold text-foreground mb-2">Recruiting</h1>
-          <p className="text-muted-foreground mb-8">Manage applicants and configure the recruitment pipeline.</p>
+          <div className="flex items-center justify-between mb-2">
+            <h1 className="text-3xl font-bold text-foreground">Recruiting Pipeline</h1>
+            <button
+              onClick={loadData}
+              disabled={loading}
+              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground border border-border px-3 py-1.5 rounded-md transition-colors"
+            >
+              <RotateCcw size={12} className={loading ? "animate-spin" : ""} />
+              Refresh
+            </button>
+          </div>
+          <p className="text-muted-foreground mb-10">Manage applicants across recruitment stages.</p>
 
-          <Tabs defaultValue="pipeline">
-            <TabsList className="mb-8">
-              <TabsTrigger value="pipeline">Pipeline</TabsTrigger>
-              <TabsTrigger value="configure">Configure</TabsTrigger>
-            </TabsList>
-
-            {/* ── Pipeline Tab ── */}
-            <TabsContent value="pipeline">
-              {/* Stats */}
-              <div className="grid grid-cols-3 gap-4 mb-8">
-                {STAGES.map((stage) => {
-                  const count = candidates.filter((c) => c.stage === stage).length;
-                  const deadline = config.stages[stage].deadline;
+          {loading && applicants.length === 0 ? (
+            <div className="flex items-center gap-2 text-muted-foreground text-sm">
+              <Loader2 size={16} className="animate-spin" /> Loading applicants...
+            </div>
+          ) : (
+            <>
+              {/* Desktop Kanban */}
+              <div className="hidden md:grid grid-cols-3 gap-6">
+                {ROUNDS.map((round) => {
+                  const cols = applicants.filter((a) => a.current_round === round && a.status === "pending");
                   return (
-                    <div key={stage} className="border border-border rounded-lg p-4 bg-card">
-                      <p className="text-xs uppercase tracking-widest text-muted-foreground mb-1">{stage}</p>
-                      <p className="text-2xl font-bold text-foreground">{count}</p>
-                      {deadline && (
-                        <p className="text-xs text-muted-foreground mt-1">Due {formatDeadline(deadline)}</p>
+                    <div key={round} className="space-y-3">
+                      <div className="flex items-center gap-2 mb-4">
+                        <h2 className="text-sm font-bold uppercase tracking-widest text-foreground">
+                          {ROUND_LABELS[round]}
+                        </h2>
+                        <span className="text-xs text-muted-foreground bg-secondary px-2 py-0.5 rounded-full">
+                          {cols.length}
+                        </span>
+                      </div>
+                      {cols.map((a) => (
+                        <CandidateCard key={a.id} applicant={a} onView={() => openDetail(a)} />
+                      ))}
+                      {cols.length === 0 && (
+                        <p className="text-xs text-muted-foreground italic">No pending candidates</p>
                       )}
                     </div>
                   );
                 })}
               </div>
 
-              {/* Desktop Kanban */}
-              <div className="hidden md:grid grid-cols-3 gap-6">
-                {STAGES.map((stage) => {
-                  const stageCandidates = candidates.filter((c) => c.stage === stage);
-                  return (
-                    <div key={stage} className="space-y-3">
-                      <div className="flex items-center gap-2 mb-4">
-                        <h2 className="text-sm font-bold uppercase tracking-widest text-foreground">{stage}</h2>
-                        <span className="text-xs text-muted-foreground bg-secondary px-2 py-0.5 rounded-full">{stageCandidates.length}</span>
+              {/* Accepted / Rejected section */}
+              <div className="mt-8 hidden md:block">
+                <h2 className="text-sm font-bold uppercase tracking-widest text-muted-foreground mb-4">
+                  Accepted & Rejected
+                </h2>
+                <div className="grid grid-cols-2 gap-4">
+                  {(["accepted", "rejected"] as const).map((status) => {
+                    const group = applicants.filter((a) => a.status === status);
+                    return (
+                      <div key={status}>
+                        <p className="text-xs text-muted-foreground mb-2 capitalize">{status} ({group.length})</p>
+                        <div className="space-y-2">
+                          {group.map((a) => (
+                            <CandidateCard key={a.id} applicant={a} onView={() => openDetail(a)} />
+                          ))}
+                          {group.length === 0 && <p className="text-xs text-muted-foreground italic">None</p>}
+                        </div>
                       </div>
-                      {stageCandidates.map((c) => (
-                        <CandidateCard key={c.id} candidate={c} onAdvance={advance} onView={setSelectedCandidate} />
-                      ))}
-                      {stageCandidates.length === 0 && (
-                        <p className="text-xs text-muted-foreground italic">{emptyMessage(stage)}</p>
-                      )}
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
 
               {/* Mobile Accordion */}
               <div className="md:hidden space-y-3">
-                {STAGES.map((stage) => {
-                  const stageCandidates = candidates.filter((c) => c.stage === stage);
-                  const isOpen = openStage === stage;
+                {ROUNDS.map((round) => {
+                  const cols = applicants.filter((a) => a.current_round === round && a.status === "pending");
+                  const isOpen = openStage === round;
                   return (
-                    <div key={stage} className="border border-border rounded-lg overflow-hidden bg-card">
-                      <button onClick={() => setOpenStage(isOpen ? null : stage)} className="w-full flex items-center justify-between px-4 py-3 text-left">
+                    <div key={round} className="border border-border rounded-lg overflow-hidden bg-card">
+                      <button
+                        onClick={() => setOpenStage(isOpen ? null : round)}
+                        className="w-full flex items-center justify-between px-4 py-3"
+                      >
                         <div className="flex items-center gap-2">
-                          <h2 className="text-sm font-bold uppercase tracking-widest text-foreground">{stage}</h2>
-                          <span className="text-xs text-muted-foreground bg-secondary px-2 py-0.5 rounded-full">{stageCandidates.length}</span>
+                          <h2 className="text-sm font-bold uppercase tracking-widest text-foreground">
+                            {ROUND_LABELS[round]}
+                          </h2>
+                          <span className="text-xs text-muted-foreground bg-secondary px-2 py-0.5 rounded-full">
+                            {cols.length}
+                          </span>
                         </div>
                         <ChevronDown size={16} className={`text-muted-foreground transition-transform ${isOpen ? "rotate-180" : ""}`} />
                       </button>
                       {isOpen && (
                         <div className="px-4 pb-4 space-y-3">
-                          {stageCandidates.map((c) => (
-                            <CandidateCard key={c.id} candidate={c} onAdvance={advance} onView={setSelectedCandidate} />
+                          {cols.map((a) => (
+                            <CandidateCard key={a.id} applicant={a} onView={() => openDetail(a)} />
                           ))}
-                          {stageCandidates.length === 0 && <p className="text-xs text-muted-foreground italic">{emptyMessage(stage)}</p>}
+                          {cols.length === 0 && <p className="text-xs text-muted-foreground italic">No pending candidates</p>}
                         </div>
                       )}
                     </div>
                   );
                 })}
               </div>
-            </TabsContent>
-
-            {/* ── Configure Tab ── */}
-            <TabsContent value="configure">
-              <ConfigureTab />
-            </TabsContent>
-          </Tabs>
+            </>
+          )}
         </div>
       </section>
 
-      <ApplicationSheet candidate={selectedCandidate} open={!!selectedCandidate} onClose={() => setSelectedCandidate(null)} />
+      {selected && (
+        <AppDetailModal
+          applicant={selected.applicant}
+          application={selected.application}
+          onClose={() => setSelected(null)}
+          onAdvance={handleAdvance}
+          onAccept={() => handleStatusChange("accepted")}
+          onReject={() => handleStatusChange("rejected")}
+          actionLoading={actionLoading}
+        />
+      )}
     </PageWrapper>
   );
 };

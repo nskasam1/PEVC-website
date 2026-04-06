@@ -1,689 +1,532 @@
-import { useState, useEffect, useRef } from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
+import { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import PageWrapper from "@/components/PageWrapper";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Button } from "@/components/ui/button";
-import {
-  CheckCircle,
-  Loader2,
-  FileText,
-  X,
-  Upload,
-  Clock,
-  Lock,
-  ExternalLink,
-  Download,
-  ChevronRight,
-} from "lucide-react";
-import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "@/hooks/use-toast";
 import {
-  getApplications,
-  saveApplication,
-  getEssayPrompts,
-  saveResumeFile,
-  getRecruitingConfig,
-  getApplicantStage,
-  formatDeadline,
-} from "@/lib/applicationStorage";
-import { Application, RecruitingConfig, Stage } from "@/types/application";
+  CheckCircle, Loader2, Calendar, Download, ExternalLink,
+  Upload, FileText, AlertCircle,
+} from "lucide-react";
+import {
+  getOrCreateApplicant, getApplicantByProfileId,
+  getApplicationByApplicantId, submitApplication, uploadResume,
+} from "@/lib/api/applicants";
+import {
+  getRoundConfig, getAvailableSlots, bookSlot,
+  getBookedSlotForApplicant,
+} from "@/lib/api/recruiting";
+import type {
+  Applicant, Application, RoundConfig,
+  InterviewSlot, EssayQuestion, ResourceLink,
+} from "@/lib/database.types";
+import { format } from "date-fns";
 
-// ── Zod Schemas ───────────────────────────────────────────────────────────────
+// ─── Step indicator ────────────────────────────────────────────
+const Steps = ({ current, total }: { current: number; total: number }) => (
+  <div className="flex items-center gap-2 mb-10">
+    {Array.from({ length: total }, (_, i) => i + 1).map((s) => (
+      <div key={s} className="flex items-center gap-2">
+        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${
+          current >= s ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground"
+        }`}>
+          {current > s ? <CheckCircle size={14} /> : s}
+        </div>
+        {s < total && <div className={`w-16 h-0.5 transition-colors ${current > s ? "bg-primary" : "bg-border"}`} />}
+      </div>
+    ))}
+  </div>
+);
 
-const kycSchema = z.object({
-  firstName: z.string().min(1, "First name is required"),
-  lastName: z.string().min(1, "Last name is required"),
-  email: z.string().email("Enter a valid email"),
-  phone: z.string().regex(/^\+?[\d\s\-().]{7,15}$/, "Enter a valid phone number"),
-  school: z.string().min(2, "School name is required"),
-  major: z.string().min(2, "Major is required"),
-  gradYear: z.string().regex(/^20\d{2}$/, "Enter a valid 4-digit graduation year"),
-  linkedinUrl: z
-    .string()
-    .url("Enter a valid LinkedIn URL")
-    .startsWith("https://", "Must start with https://"),
-});
-
-const resumeSchema = z.object({
-  resumeFileId: z.string().min(1, "Please upload your resume"),
-});
-
-const essaySchema = z.object({
-  essay1: z.string().min(100, "Essay must be at least 100 characters").max(2000, "Essay must be under 2000 characters"),
-  essay2: z.string().min(100, "Essay must be at least 100 characters").max(2000, "Essay must be under 2000 characters"),
-});
-
-const applicationSchema = kycSchema.merge(resumeSchema).merge(essaySchema);
-type ApplicationFormValues = z.infer<typeof applicationSchema>;
-
-const KYC_FIELDS = ["firstName", "lastName", "email", "phone", "school", "major", "gradYear", "linkedinUrl"] as const;
-const RESUME_FIELDS = ["resumeFileId"] as const;
-const ESSAY_FIELDS = ["essay1", "essay2"] as const;
-const STEP_LABELS = ["KYC", "Resume", "Essays", "Review"];
-
-// ── Application Tracker ───────────────────────────────────────────────────────
-
-const PIPELINE: { key: Stage | "Decision"; label: string; sublabel: string }[] = [
-  { key: "Application", label: "R0 — Application", sublabel: "KYC, Resume & Essays" },
-  { key: "Round 1", label: "R1 — 1st Round Interview", sublabel: "Case presentation & interview" },
-  { key: "Round 2", label: "R2 — 2nd Round Interview", sublabel: "Final round" },
-  { key: "Decision", label: "Decision", sublabel: "Final outcome" },
-];
-
-const STAGE_ORDER: (Stage | "Decision")[] = ["Application", "Round 1", "Round 2", "Decision"];
-
-function stageIndex(stage: string): number {
-  return STAGE_ORDER.indexOf(stage as Stage | "Decision");
+// ─── R0: KYC + Essays ─────────────────────────────────────────
+interface R0FormValues {
+  name: string; email: string; phone: string; school: string;
+  major: string; year: string; gpa: string; linkedinUrl: string;
+  essayAnswers: Record<string, string>;
+  resumeFile: File | null;
 }
 
-const ApplicationTracker = ({
-  application,
-  currentStage,
-  config,
+const R0Form = ({
+  questions, initialEmail, initialName, onSubmit, loading,
 }: {
-  application: Application;
-  currentStage: Stage;
-  config: RecruitingConfig;
+  questions: EssayQuestion[];
+  initialEmail: string;
+  initialName: string;
+  onSubmit: (v: R0FormValues) => void;
+  loading: boolean;
 }) => {
-  const currentIdx = stageIndex(currentStage);
+  const [step, setStep] = useState<"kyc" | "essays">("kyc");
+  const [form, setForm] = useState<R0FormValues>({
+    name: initialName, email: initialEmail, phone: "", school: "",
+    major: "", year: "", gpa: "", linkedinUrl: "", essayAnswers: {}, resumeFile: null,
+  });
+
+  const set = (k: keyof R0FormValues, v: unknown) =>
+    setForm((f) => ({ ...f, [k]: v }));
+
+  const kyc_valid =
+    form.name && form.email && form.phone && form.school &&
+    form.major && form.year && form.gpa;
+
+  const essays_valid = questions.every((q) => (form.essayAnswers[q.id] ?? "").trim().length > 0);
 
   return (
-    <div className="space-y-4">
-      <div className="mb-8">
-        <h2 className="text-2xl font-bold text-foreground mb-1">Application Tracker</h2>
-        <p className="text-muted-foreground text-sm">
-          Hi {application.firstName}, here's your real-time application status.
-        </p>
-      </div>
+    <div>
+      <Steps current={step === "kyc" ? 1 : 2} total={2} />
 
-      {PIPELINE.map((node, idx) => {
-        const isDecision = node.key === "Decision";
-        const isDone = idx < currentIdx;
-        const isActive = idx === currentIdx;
-        const isLocked = idx > currentIdx;
-
-        const stageConfig = !isDecision ? config.stages[node.key as Stage] : null;
-        const deadline = stageConfig?.deadline ? formatDeadline(stageConfig.deadline) : null;
-        const hearBack = stageConfig?.hearBackBy ? formatDeadline(stageConfig.hearBackBy) : null;
-        const calendlyUrl = stageConfig?.calendlyUrl;
-        const caseMaterials = stageConfig?.caseMaterials ?? [];
-        const resources = stageConfig?.resources ?? [];
-        const hasInterviewContent = (node.key === "Round 1" || node.key === "Round 2") && isActive;
-
-        return (
-          <div key={node.key} className="flex gap-4">
-            {/* Timeline spine */}
-            <div className="flex flex-col items-center">
-              <div
-                className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 border-2 transition-colors ${
-                  isDone
-                    ? "bg-primary border-primary text-primary-foreground"
-                    : isActive
-                    ? "border-primary bg-primary/10 text-primary"
-                    : "border-border bg-secondary text-muted-foreground"
-                }`}
-              >
-                {isDone ? (
-                  <CheckCircle size={16} />
-                ) : isLocked ? (
-                  <Lock size={14} />
-                ) : (
-                  <ChevronRight size={16} />
-                )}
-              </div>
-              {idx < PIPELINE.length - 1 && (
-                <div className={`w-0.5 flex-1 mt-1 min-h-[24px] ${isDone ? "bg-primary" : "bg-border"}`} />
-              )}
+      {step === "kyc" && (
+        <div className="space-y-5">
+          <h2 className="text-lg font-semibold text-foreground mb-4">Personal Information</h2>
+          {[
+            { label: "Full Name", key: "name" as const, type: "text", placeholder: "Jane Doe" },
+            { label: "Email", key: "email" as const, type: "email", placeholder: "jane@university.edu" },
+            { label: "Phone", key: "phone" as const, type: "tel", placeholder: "+1 (555) 000-0000" },
+            { label: "School", key: "school" as const, type: "text", placeholder: "The Ohio State University" },
+            { label: "Major", key: "major" as const, type: "text", placeholder: "Finance" },
+            { label: "Graduation Year", key: "year" as const, type: "text", placeholder: "2026" },
+            { label: "GPA", key: "gpa" as const, type: "text", placeholder: "3.8" },
+            { label: "LinkedIn URL", key: "linkedinUrl" as const, type: "url", placeholder: "https://linkedin.com/in/yourname" },
+          ].map(({ label, key, type, placeholder }) => (
+            <div key={key}>
+              <label className="text-xs uppercase tracking-widest text-muted-foreground mb-2 block">{label}</label>
+              <input
+                type={type}
+                value={String(form[key] ?? "")}
+                onChange={(e) => set(key, e.target.value)}
+                placeholder={placeholder}
+                className="w-full bg-transparent scarlet-input px-0 py-3 text-foreground text-sm placeholder:text-muted-foreground focus:outline-none"
+              />
             </div>
+          ))}
 
-            {/* Content */}
-            <div className={`pb-6 flex-1 ${isLocked ? "opacity-40" : ""}`}>
-              <div className="flex flex-wrap items-center gap-2 mb-1">
-                <p className={`font-semibold text-sm ${isActive ? "text-primary" : "text-foreground"}`}>
-                  {node.label}
-                </p>
-                {isDone && (
-                  <span className="text-[10px] font-semibold uppercase tracking-wider bg-primary/15 text-primary px-2 py-0.5 rounded-full">
-                    Completed
-                  </span>
-                )}
-                {isActive && !isDecision && (
-                  <span className="text-[10px] font-semibold uppercase tracking-wider bg-amber-500/15 text-amber-400 px-2 py-0.5 rounded-full">
-                    In Progress
-                  </span>
-                )}
-              </div>
-              <p className="text-xs text-muted-foreground mb-2">{node.sublabel}</p>
-
-              {/* Dates */}
-              {!isDecision && (deadline || hearBack) && (
-                <div className="flex flex-wrap gap-4 mb-3">
-                  {deadline && (
-                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                      <Clock size={12} />
-                      <span>Deadline: <span className="text-foreground">{deadline}</span></span>
-                    </div>
-                  )}
-                  {hearBack && (
-                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                      <Clock size={12} />
-                      <span>Hear back by: <span className="text-foreground">{hearBack}</span></span>
-                    </div>
-                  )}
+          {/* Resume upload */}
+          <div>
+            <label className="text-xs uppercase tracking-widest text-muted-foreground mb-2 block">Resume (PDF)</label>
+            <label className="flex items-center gap-3 border border-dashed border-border rounded-md p-4 cursor-pointer hover:border-primary transition-colors">
+              {form.resumeFile ? (
+                <div className="flex items-center gap-2">
+                  <FileText size={18} className="text-primary" />
+                  <span className="text-sm text-foreground">{form.resumeFile.name}</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Upload size={18} />
+                  <span className="text-sm">Upload resume (PDF, max 10 MB)</span>
                 </div>
               )}
-
-              {/* R0 — show submitted date */}
-              {node.key === "Application" && (
-                <p className="text-xs text-muted-foreground">
-                  Submitted {new Date(application.submittedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-                </p>
-              )}
-
-              {/* R1/R2 active — show scheduling + materials */}
-              {hasInterviewContent && (
-                <div className="mt-4 space-y-4">
-                  {/* Case Materials */}
-                  {caseMaterials.length > 0 && (
-                    <div>
-                      <p className="text-xs uppercase tracking-widest text-muted-foreground mb-2">Case Materials</p>
-                      <div className="space-y-2">
-                        {caseMaterials.map((m) => (
-                          <a
-                            key={m.id}
-                            href={m.base64Data}
-                            download={m.name}
-                            className="flex items-center gap-2 text-sm text-primary hover:underline"
-                          >
-                            <Download size={13} />
-                            {m.name}
-                          </a>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Resources */}
-                  {resources.length > 0 && (
-                    <div>
-                      <p className="text-xs uppercase tracking-widest text-muted-foreground mb-2">Prep Resources</p>
-                      <div className="flex flex-wrap gap-2">
-                        {resources.map((r) => (
-                          <a
-                            key={r.id}
-                            href={r.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center gap-1.5 text-xs border border-border rounded-md px-3 py-1.5 text-foreground hover:border-primary hover:text-primary transition-colors"
-                          >
-                            {r.label}
-                            <ExternalLink size={11} />
-                          </a>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Schedule */}
-                  {calendlyUrl ? (
-                    <div>
-                      <p className="text-xs uppercase tracking-widest text-muted-foreground mb-3">Schedule Your Interview</p>
-                      <iframe
-                        src={calendlyUrl}
-                        className="w-full rounded-lg border border-border"
-                        style={{ height: 600 }}
-                        title="Schedule interview"
-                      />
-                    </div>
-                  ) : (
-                    <div className="border border-dashed border-border rounded-md p-4 text-xs text-muted-foreground italic">
-                      Scheduling link coming soon — check back shortly.
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
+              <input
+                type="file"
+                accept="application/pdf"
+                className="hidden"
+                onChange={(e) => set("resumeFile", e.target.files?.[0] ?? null)}
+              />
+            </label>
           </div>
-        );
-      })}
+
+          <button
+            onClick={() => setStep("essays")}
+            disabled={!kyc_valid}
+            className="bg-primary text-primary-foreground px-6 py-2.5 rounded-md text-sm font-semibold hover:bg-primary/90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            Next → Essay Questions
+          </button>
+        </div>
+      )}
+
+      {step === "essays" && (
+        <div className="space-y-6">
+          <h2 className="text-lg font-semibold text-foreground mb-4">Essay Questions</h2>
+          {questions.map((q, idx) => (
+            <div key={q.id}>
+              <label className="text-xs uppercase tracking-widest text-muted-foreground mb-2 block">
+                {idx + 1}. {q.text}
+              </label>
+              <textarea
+                value={form.essayAnswers[q.id] ?? ""}
+                onChange={(e) =>
+                  set("essayAnswers", { ...form.essayAnswers, [q.id]: e.target.value })
+                }
+                rows={6}
+                className="w-full bg-card border border-border rounded-md p-3 text-sm text-foreground placeholder:text-muted-foreground focus:ring-1 focus:ring-primary focus:outline-none resize-none"
+                placeholder="Your answer..."
+              />
+            </div>
+          ))}
+          <div className="flex gap-3">
+            <button
+              onClick={() => setStep("kyc")}
+              className="border border-border px-6 py-2.5 rounded-md text-sm text-foreground hover:bg-secondary transition-colors"
+            >
+              ← Back
+            </button>
+            <button
+              onClick={() => onSubmit(form)}
+              disabled={!essays_valid || loading}
+              className="bg-primary text-primary-foreground px-6 py-2.5 rounded-md text-sm font-semibold hover:bg-primary/90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2"
+            >
+              {loading && <Loader2 size={14} className="animate-spin" />}
+              Submit Application
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
 
-// ── Main Component ────────────────────────────────────────────────────────────
+// ─── R1/R2: Interview scheduling + resources ──────────────────
+const InterviewView = ({
+  round, config, applicantId,
+}: {
+  round: "r1" | "r2";
+  config: RoundConfig;
+  applicantId: string;
+}) => {
+  const [slots, setSlots] = useState<InterviewSlot[]>([]);
+  const [bookedSlot, setBookedSlot] = useState<InterviewSlot | null>(null);
+  const [booking, setBooking] = useState(false);
+  const [loadingSlots, setLoadingSlots] = useState(true);
 
-const Apply = () => {
-  const { user } = useAuth();
-  const [step, setStep] = useState(1);
-  const [submitted, setSubmitted] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [resumeFile, setResumeFile] = useState<File | null>(null);
-  const [resumeUploading, setResumeUploading] = useState(false);
-  const [resumeFileName, setResumeFileName] = useState("");
-  const [existingApp, setExistingApp] = useState<Application | null>(null);
-  const [currentStage, setCurrentStage] = useState<Stage>("Application");
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const resourceLinks = (config.resource_links as unknown as ResourceLink[]) ?? [];
 
-  const prompts = getEssayPrompts();
-  const config = getRecruitingConfig();
-
-  const form = useForm<ApplicationFormValues>({
-    resolver: zodResolver(applicationSchema),
-    mode: "onTouched",
-    defaultValues: {
-      firstName: "",
-      lastName: "",
-      email: user?.email ?? "",
-      phone: "",
-      school: "",
-      major: user?.major ?? "",
-      gradYear: user?.gradYear ?? "",
-      linkedinUrl: user?.linkedinUrl ?? "",
-      resumeFileId: "",
-      essay1: "",
-      essay2: "",
-    },
-  });
-
-  // Check if already applied
-  useEffect(() => {
-    if (!user) return;
-    const apps = getApplications();
-    const prior = apps.find((a) => a.email.toLowerCase() === user.email.toLowerCase());
-    if (prior) {
-      setExistingApp(prior);
-      setCurrentStage(getApplicantStage(prior.id) as Stage);
-    }
-  }, [user]);
-
-  // Load draft
-  useEffect(() => {
+  const loadSlots = useCallback(async () => {
+    setLoadingSlots(true);
     try {
-      const raw = localStorage.getItem("pevc_draft");
-      if (raw) {
-        form.reset(JSON.parse(raw));
-        toast.info("Draft restored.");
-      }
-    } catch { /* ignore */ }
-  }, []);
-
-  // Auto-save draft
-  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => {
-    const sub = form.watch((values) => {
-      setSaving(true);
-      if (saveTimer.current) clearTimeout(saveTimer.current);
-      saveTimer.current = setTimeout(() => {
-        try { localStorage.setItem("pevc_draft", JSON.stringify(values)); } catch { /* ignore */ }
-        setSaving(false);
-      }, 1500);
-    });
-    return () => sub.unsubscribe();
-  }, [form]);
-
-  const essay1Value = form.watch("essay1");
-  const essay2Value = form.watch("essay2");
-
-  const goNext = async () => {
-    let valid = false;
-    if (step === 1) valid = await form.trigger(KYC_FIELDS as unknown as (keyof ApplicationFormValues)[]);
-    if (step === 2) valid = await form.trigger(RESUME_FIELDS as unknown as (keyof ApplicationFormValues)[]);
-    if (step === 3) valid = await form.trigger(ESSAY_FIELDS as unknown as (keyof ApplicationFormValues)[]);
-    if (valid) setStep((s) => s + 1);
-  };
-
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setResumeUploading(true);
-    try {
-      const email = form.getValues("email") || user?.email || "unknown";
-      const stored = await saveResumeFile(file, email);
-      setResumeFile(file);
-      setResumeFileName(stored.name);
-      form.setValue("resumeFileId", stored.id, { shouldValidate: true });
-      toast.success("Resume uploaded.");
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Upload failed.");
+      const [available, booked] = await Promise.all([
+        getAvailableSlots(round),
+        getBookedSlotForApplicant(applicantId),
+      ]);
+      setSlots(available);
+      setBookedSlot(booked);
+    } catch (e) {
+      console.error(e);
     } finally {
-      setResumeUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
+      setLoadingSlots(false);
+    }
+  }, [round, applicantId]);
+
+  useEffect(() => { loadSlots(); }, [loadSlots]);
+
+  const handleBook = async (slot: InterviewSlot) => {
+    setBooking(true);
+    try {
+      await bookSlot(slot.id, applicantId);
+      toast({ title: "Interview Scheduled", description: `Your slot is confirmed for ${format(new Date(slot.slot_datetime), "PPp")}` });
+      await loadSlots();
+    } catch (e) {
+      toast({ title: "Booking Failed", description: String(e), variant: "destructive" });
+    } finally {
+      setBooking(false);
     }
   };
 
-  const clearResume = () => {
-    setResumeFile(null);
-    setResumeFileName("");
-    form.setValue("resumeFileId", "", { shouldValidate: true });
-  };
+  const roundLabel = round === "r1" ? "First Round" : "Second Round";
 
-  const onSubmit = async (values: ApplicationFormValues) => {
-    const app: Application = {
-      id: Date.now().toString(),
-      submittedAt: new Date().toISOString(),
-      stage: "Application",
-      firstName: values.firstName,
-      lastName: values.lastName,
-      email: values.email,
-      phone: values.phone,
-      school: values.school,
-      major: values.major,
-      gradYear: values.gradYear,
-      linkedinUrl: values.linkedinUrl,
-      resumeFileId: values.resumeFileId,
-      resumeFileName,
-      essay1Prompt: prompts.essay1,
-      essay1: values.essay1,
-      essay2Prompt: prompts.essay2,
-      essay2: values.essay2,
+  return (
+    <div className="space-y-8">
+      <div>
+        <h2 className="text-xl font-bold text-foreground mb-1">{roundLabel} Interview</h2>
+        <p className="text-sm text-muted-foreground">You've advanced to {roundLabel}. See details below.</p>
+      </div>
+
+      {/* Booked slot */}
+      {bookedSlot && (
+        <div className="border border-primary/40 bg-primary/5 rounded-lg p-5">
+          <div className="flex items-center gap-2 mb-2">
+            <CheckCircle size={18} className="text-primary" />
+            <span className="font-semibold text-foreground text-sm">Interview Scheduled</span>
+          </div>
+          <p className="text-sm text-foreground">
+            {format(new Date(bookedSlot.slot_datetime), "EEEE, MMMM d, yyyy 'at' h:mm a")}
+          </p>
+        </div>
+      )}
+
+      {/* Case file */}
+      {config.case_file_url && (
+        <div className="border border-border rounded-lg p-5">
+          <h3 className="text-sm font-bold uppercase tracking-widest text-foreground mb-3">Case File</h3>
+          <a
+            href={config.case_file_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 text-sm text-primary hover:underline"
+          >
+            <Download size={16} />
+            Download Case File
+          </a>
+        </div>
+      )}
+
+      {/* Prep resources */}
+      {resourceLinks.length > 0 && (
+        <div className="border border-border rounded-lg p-5">
+          <h3 className="text-sm font-bold uppercase tracking-widest text-foreground mb-3">Prep Resources</h3>
+          <ul className="space-y-2">
+            {resourceLinks.map((link, i) => (
+              <li key={i}>
+                <a
+                  href={link.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 text-sm text-primary hover:underline"
+                >
+                  <ExternalLink size={14} />
+                  {link.label}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* Slot picker */}
+      {!bookedSlot && (
+        <div className="border border-border rounded-lg p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <Calendar size={18} className="text-primary" />
+            <h3 className="text-sm font-bold uppercase tracking-widest text-foreground">
+              Schedule Your Interview
+            </h3>
+          </div>
+          {loadingSlots ? (
+            <div className="flex items-center gap-2 text-muted-foreground text-sm">
+              <Loader2 size={14} className="animate-spin" /> Loading available slots...
+            </div>
+          ) : slots.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No available slots yet. Check back soon.</p>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {slots.map((slot) => (
+                <button
+                  key={slot.id}
+                  disabled={booking}
+                  onClick={() => handleBook(slot)}
+                  className="border border-border rounded-md py-3 px-2 text-xs text-foreground hover:border-primary hover:bg-primary/5 transition-colors disabled:opacity-40 text-center"
+                >
+                  {format(new Date(slot.slot_datetime), "EEE MMM d")}
+                  <br />
+                  {format(new Date(slot.slot_datetime), "h:mm a")}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ─── Main Apply page ──────────────────────────────────────────
+const Apply = () => {
+  const { user, isAuthenticated, loading: authLoading } = useAuth();
+  const navigate = useNavigate();
+
+  const [pageLoading, setPageLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+
+  const [applicant, setApplicant] = useState<Applicant | null>(null);
+  const [application, setApplication] = useState<Application | null>(null);
+  const [r0Config, setR0Config] = useState<RoundConfig | null>(null);
+  const [r1Config, setR1Config] = useState<RoundConfig | null>(null);
+  const [r2Config, setR2Config] = useState<RoundConfig | null>(null);
+
+  // Load everything on mount
+  useEffect(() => {
+    if (authLoading) return;
+    if (!isAuthenticated || !user) {
+      navigate("/login");
+      return;
+    }
+
+    const load = async () => {
+      try {
+        const [r0, r1, r2] = await Promise.all([
+          getRoundConfig("r0"),
+          getRoundConfig("r1"),
+          getRoundConfig("r2"),
+        ]);
+        setR0Config(r0);
+        setR1Config(r1);
+        setR2Config(r2);
+
+        const existing = await getApplicantByProfileId(user.id);
+        if (existing) {
+          setApplicant(existing);
+          const app = await getApplicationByApplicantId(existing.id);
+          setApplication(app);
+        }
+      } catch (e) {
+        toast({ title: "Error loading application", description: String(e), variant: "destructive" });
+      } finally {
+        setPageLoading(false);
+      }
     };
-    const saved = saveApplication(app);
-    if (saved) {
-      localStorage.removeItem("pevc_draft");
-      setExistingApp(app);
-      setCurrentStage("Application");
+    load();
+  }, [authLoading, isAuthenticated, user, navigate]);
+
+  const handleSubmitR0 = async (formValues: Parameters<typeof R0Form>[0]["onSubmit"] extends (v: infer V) => void ? V : never) => {
+    if (!user || !r0Config) return;
+    setSubmitting(true);
+    try {
+      // Get or create applicant record
+      const ap = await getOrCreateApplicant(user.id, formValues.name, formValues.email);
+      setApplicant(ap);
+
+      // Upload resume if provided
+      let resumeUrl: string | null = null;
+      if (formValues.resumeFile) {
+        resumeUrl = await uploadResume(ap.id, formValues.resumeFile);
+      }
+
+      // Build essay answers
+      const questions = (r0Config.essay_questions as unknown as EssayQuestion[]) ?? [];
+      const essayAnswers = questions.map((q) => ({
+        question_id: q.id,
+        question_text: q.text,
+        answer: formValues.essayAnswers[q.id] ?? "",
+      }));
+
+      const app = await submitApplication({
+        applicantId: ap.id,
+        name: formValues.name,
+        email: formValues.email,
+        phone: formValues.phone,
+        school: formValues.school,
+        major: formValues.major,
+        year: formValues.year,
+        gpa: formValues.gpa,
+        linkedinUrl: formValues.linkedinUrl,
+        resumeUrl,
+        essayAnswers,
+      });
+
+      setApplication(app);
       setSubmitted(true);
-      toast.success("Application submitted!");
+      toast({ title: "Application submitted!", description: "We'll review it and get back to you." });
+    } catch (e) {
+      toast({ title: "Submission failed", description: String(e), variant: "destructive" });
+    } finally {
+      setSubmitting(false);
     }
   };
 
-  // ── Show tracker if already applied (or just submitted) ──
-
-  if (existingApp) {
+  if (authLoading || pageLoading) {
     return (
       <PageWrapper>
-        <section className="min-h-screen pt-28 pb-20 px-6">
-          <div className="max-w-2xl mx-auto">
-            <ApplicationTracker
-              application={existingApp}
-              currentStage={currentStage}
-              config={config}
-            />
+        <section className="min-h-screen flex items-center justify-center">
+          <Loader2 size={32} className="animate-spin text-primary" />
+        </section>
+      </PageWrapper>
+    );
+  }
+
+  // Submission success screen
+  if (submitted || (application && applicant?.status === "pending" && applicant.current_round === "r0")) {
+    return (
+      <PageWrapper>
+        <section className="min-h-screen flex items-center justify-center px-6">
+          <div className="text-center max-w-md">
+            <CheckCircle size={52} className="text-primary mx-auto mb-4" />
+            <h2 className="text-2xl font-bold text-foreground mb-2">Application Submitted</h2>
+            <p className="text-muted-foreground text-sm">
+              We're reviewing your application and will follow up via email.
+            </p>
           </div>
         </section>
       </PageWrapper>
     );
   }
 
-  // ── Application Form ──
+  // Accepted
+  if (applicant?.status === "accepted") {
+    return (
+      <PageWrapper>
+        <section className="min-h-screen flex items-center justify-center px-6">
+          <div className="text-center max-w-md">
+            <CheckCircle size={52} className="text-primary mx-auto mb-4" />
+            <h2 className="text-2xl font-bold text-foreground mb-2">Congratulations!</h2>
+            <p className="text-muted-foreground text-sm">You've been accepted to PEVC. Welcome aboard!</p>
+          </div>
+        </section>
+      </PageWrapper>
+    );
+  }
+
+  // Rejected
+  if (applicant?.status === "rejected") {
+    return (
+      <PageWrapper>
+        <section className="min-h-screen flex items-center justify-center px-6">
+          <div className="text-center max-w-md">
+            <AlertCircle size={52} className="text-muted-foreground mx-auto mb-4" />
+            <h2 className="text-2xl font-bold text-foreground mb-2">Application Update</h2>
+            <p className="text-muted-foreground text-sm">
+              Thank you for your interest in PEVC. We won't be moving forward at this time.
+            </p>
+          </div>
+        </section>
+      </PageWrapper>
+    );
+  }
+
+  // R1 or R2 interview view
+  if (applicant && (applicant.current_round === "r1" || applicant.current_round === "r2")) {
+    const round = applicant.current_round;
+    const config = round === "r1" ? r1Config : r2Config;
+    if (!config) {
+      return (
+        <PageWrapper>
+          <section className="min-h-screen flex items-center justify-center">
+            <Loader2 size={32} className="animate-spin text-primary" />
+          </section>
+        </PageWrapper>
+      );
+    }
+    return (
+      <PageWrapper>
+        <section className="min-h-screen pt-28 pb-20 px-6">
+          <div className="max-w-2xl mx-auto">
+            <InterviewView round={round} config={config} applicantId={applicant.id} />
+          </div>
+        </section>
+      </PageWrapper>
+    );
+  }
+
+  // R0: check if open
+  if (!r0Config?.is_open) {
+    return (
+      <PageWrapper>
+        <section className="min-h-screen flex items-center justify-center px-6">
+          <div className="text-center max-w-md">
+            <AlertCircle size={52} className="text-muted-foreground mx-auto mb-4" />
+            <h2 className="text-2xl font-bold text-foreground mb-2">Applications Closed</h2>
+            <p className="text-muted-foreground text-sm">
+              Applications are currently closed. Check back later.
+            </p>
+          </div>
+        </section>
+      </PageWrapper>
+    );
+  }
+
+  // R0 application form
+  const questions = (r0Config?.essay_questions as unknown as EssayQuestion[]) ?? [];
 
   return (
     <PageWrapper>
       <section className="min-h-screen pt-28 pb-20 px-6">
         <div className="max-w-2xl mx-auto">
           <h1 className="text-3xl font-bold text-foreground mb-2">Apply to PEVC</h1>
-          <p className="text-muted-foreground mb-8">Complete all steps to submit your application.</p>
-
-          {/* Progress Tracker */}
-          <div className="flex items-center gap-2 mb-10">
-            {[1, 2, 3, 4].map((s) => (
-              <div key={s} className="flex items-center gap-2">
-                <div className="flex flex-col items-center gap-1">
-                  <div
-                    className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${
-                      step >= s ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground"
-                    }`}
-                  >
-                    {step > s ? <CheckCircle size={14} /> : s}
-                  </div>
-                  <span className="text-[10px] text-muted-foreground hidden sm:block">{STEP_LABELS[s - 1]}</span>
-                </div>
-                {s < 4 && (
-                  <div className={`w-12 sm:w-20 h-0.5 mb-4 transition-colors ${step > s ? "bg-primary" : "bg-border"}`} />
-                )}
-              </div>
-            ))}
-          </div>
-
-          {/* Auto-save indicator */}
-          <div className="flex items-center gap-2 mb-6 h-5">
-            {saving && (
-              <>
-                <Loader2 size={14} className="animate-spin text-muted-foreground" />
-                <span className="text-xs text-muted-foreground">Auto-saving draft...</span>
-              </>
-            )}
-          </div>
-
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-
-              {/* ── Step 1: KYC ── */}
-              {step === 1 && (
-                <div className="space-y-5">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <FormField control={form.control} name="firstName" render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-xs uppercase tracking-widest text-muted-foreground">First Name</FormLabel>
-                        <FormControl><Input placeholder="Jane" className="scarlet-input" {...field} /></FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )} />
-                    <FormField control={form.control} name="lastName" render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-xs uppercase tracking-widest text-muted-foreground">Last Name</FormLabel>
-                        <FormControl><Input placeholder="Doe" className="scarlet-input" {...field} /></FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )} />
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <FormField control={form.control} name="email" render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-xs uppercase tracking-widest text-muted-foreground">Email</FormLabel>
-                        <FormControl><Input type="email" placeholder="jane@university.edu" className="scarlet-input" {...field} /></FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )} />
-                    <FormField control={form.control} name="phone" render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-xs uppercase tracking-widest text-muted-foreground">Phone</FormLabel>
-                        <FormControl><Input type="tel" placeholder="+1 (555) 000-0000" className="scarlet-input" {...field} /></FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )} />
-                  </div>
-
-                  <FormField control={form.control} name="school" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-xs uppercase tracking-widest text-muted-foreground">School / University</FormLabel>
-                      <FormControl><Input placeholder="Ohio State University" className="scarlet-input" {...field} /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )} />
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <FormField control={form.control} name="major" render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-xs uppercase tracking-widest text-muted-foreground">Major</FormLabel>
-                        <FormControl><Input placeholder="Finance" className="scarlet-input" {...field} /></FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )} />
-                    <FormField control={form.control} name="gradYear" render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-xs uppercase tracking-widest text-muted-foreground">Graduation Year</FormLabel>
-                        <FormControl><Input inputMode="numeric" placeholder="2026" className="scarlet-input" {...field} /></FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )} />
-                  </div>
-
-                  <FormField control={form.control} name="linkedinUrl" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-xs uppercase tracking-widest text-muted-foreground">LinkedIn URL</FormLabel>
-                      <FormControl><Input type="url" placeholder="https://linkedin.com/in/janedoe" className="scarlet-input" {...field} /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )} />
-
-                  <Button type="button" onClick={goNext} className="w-full sm:w-auto">Next →</Button>
-                </div>
-              )}
-
-              {/* ── Step 2: Resume ── */}
-              {step === 2 && (
-                <div className="space-y-5">
-                  <FormField control={form.control} name="resumeFileId" render={() => (
-                    <FormItem>
-                      <FormLabel className="text-xs uppercase tracking-widest text-muted-foreground">Resume (PDF, max 5 MB)</FormLabel>
-                      <FormControl>
-                        <div>
-                          {resumeFile ? (
-                            <div className="flex items-center justify-between border border-primary/40 rounded-md px-4 py-3 bg-card">
-                              <div className="flex items-center gap-3">
-                                <FileText size={18} className="text-primary" />
-                                <div>
-                                  <p className="text-sm text-foreground font-medium">{resumeFileName}</p>
-                                  <p className="text-xs text-muted-foreground">{(resumeFile.size / 1024).toFixed(1)} KB</p>
-                                </div>
-                              </div>
-                              <button type="button" onClick={clearResume} className="text-muted-foreground hover:text-foreground transition-colors">
-                                <X size={16} />
-                              </button>
-                            </div>
-                          ) : (
-                            <label className="flex flex-col items-center justify-center border-2 border-dashed border-border hover:border-primary/60 rounded-md p-8 cursor-pointer transition-colors bg-card/50 group">
-                              <input ref={fileInputRef} type="file" accept=".pdf" className="hidden" onChange={handleFileChange} disabled={resumeUploading} />
-                              {resumeUploading ? (
-                                <Loader2 size={24} className="animate-spin text-primary mb-2" />
-                              ) : (
-                                <Upload size={24} className="text-muted-foreground group-hover:text-primary mb-2 transition-colors" />
-                              )}
-                              <span className="text-sm text-muted-foreground group-hover:text-foreground transition-colors">
-                                {resumeUploading ? "Uploading..." : "Click to upload your resume"}
-                              </span>
-                              <span className="text-xs text-muted-foreground mt-1">PDF only · Max 5 MB</span>
-                            </label>
-                          )}
-                        </div>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )} />
-                  <div className="flex gap-3">
-                    <Button type="button" variant="outline" onClick={() => setStep(1)}>← Back</Button>
-                    <Button type="button" onClick={goNext}>Next →</Button>
-                  </div>
-                </div>
-              )}
-
-              {/* ── Step 3: Essays ── */}
-              {step === 3 && (
-                <div className="space-y-6">
-                  <FormField control={form.control} name="essay1" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-xs uppercase tracking-widest text-muted-foreground">Essay 1</FormLabel>
-                      <p className="text-sm text-muted-foreground mb-2">{prompts.essay1}</p>
-                      <FormControl>
-                        <Textarea rows={7} className="resize-none" placeholder="Share your response..." {...field} />
-                      </FormControl>
-                      <div className="flex justify-between items-center mt-1">
-                        <FormMessage />
-                        <span className={`text-xs ml-auto ${essay1Value.length > 2000 ? "text-destructive" : "text-muted-foreground"}`}>
-                          {essay1Value.length}/2000
-                        </span>
-                      </div>
-                    </FormItem>
-                  )} />
-
-                  <FormField control={form.control} name="essay2" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-xs uppercase tracking-widest text-muted-foreground">Essay 2</FormLabel>
-                      <p className="text-sm text-muted-foreground mb-2">{prompts.essay2}</p>
-                      <FormControl>
-                        <Textarea rows={7} className="resize-none" placeholder="Walk us through your analysis..." {...field} />
-                      </FormControl>
-                      <div className="flex justify-between items-center mt-1">
-                        <FormMessage />
-                        <span className={`text-xs ml-auto ${essay2Value.length > 2000 ? "text-destructive" : "text-muted-foreground"}`}>
-                          {essay2Value.length}/2000
-                        </span>
-                      </div>
-                    </FormItem>
-                  )} />
-
-                  <div className="flex gap-3">
-                    <Button type="button" variant="outline" onClick={() => setStep(2)}>← Back</Button>
-                    <Button type="button" onClick={goNext}>Review →</Button>
-                  </div>
-                </div>
-              )}
-
-              {/* ── Step 4: Review ── */}
-              {step === 4 && (
-                <div className="space-y-6">
-                  <div className="border border-border rounded-lg p-6 bg-card space-y-5">
-                    <div>
-                      <p className="text-xs uppercase tracking-widest text-muted-foreground mb-2">Personal Info</p>
-                      <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm text-foreground">
-                        <span className="text-muted-foreground">Name</span>
-                        <span>{form.getValues("firstName")} {form.getValues("lastName")}</span>
-                        <span className="text-muted-foreground">Email</span>
-                        <span>{form.getValues("email")}</span>
-                        <span className="text-muted-foreground">Phone</span>
-                        <span>{form.getValues("phone")}</span>
-                        <span className="text-muted-foreground">School</span>
-                        <span>{form.getValues("school")}</span>
-                        <span className="text-muted-foreground">Major</span>
-                        <span>{form.getValues("major")}</span>
-                        <span className="text-muted-foreground">Grad Year</span>
-                        <span>{form.getValues("gradYear")}</span>
-                        <span className="text-muted-foreground">LinkedIn</span>
-                        <a href={form.getValues("linkedinUrl")} target="_blank" rel="noopener noreferrer" className="text-primary truncate hover:underline">
-                          {form.getValues("linkedinUrl")}
-                        </a>
-                      </div>
-                    </div>
-
-                    <div className="border-t border-border pt-4">
-                      <p className="text-xs uppercase tracking-widest text-muted-foreground mb-2">Resume</p>
-                      <div className="flex items-center gap-2 text-sm text-foreground">
-                        <FileText size={14} className="text-primary" />
-                        <span>{resumeFileName || "No file uploaded"}</span>
-                      </div>
-                    </div>
-
-                    <div className="border-t border-border pt-4">
-                      <p className="text-xs uppercase tracking-widest text-muted-foreground mb-3">Essays</p>
-                      <div className="space-y-4">
-                        <div>
-                          <p className="text-xs text-muted-foreground italic mb-1">{prompts.essay1}</p>
-                          <p className="text-sm text-foreground whitespace-pre-wrap break-words">{form.getValues("essay1")}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground italic mb-1">{prompts.essay2}</p>
-                          <p className="text-sm text-foreground whitespace-pre-wrap break-words">{form.getValues("essay2")}</p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex gap-3">
-                    <Button type="button" variant="outline" onClick={() => setStep(3)}>← Back</Button>
-                    <Button type="submit" className="flex-1 sm:flex-none sm:min-w-[180px]" disabled={form.formState.isSubmitting}>
-                      {form.formState.isSubmitting ? (
-                        <><Loader2 size={14} className="animate-spin mr-2" />Submitting...</>
-                      ) : "Submit Application"}
-                    </Button>
-                  </div>
-                </div>
-              )}
-
-            </form>
-          </Form>
+          <p className="text-muted-foreground mb-10">Complete all steps to submit your application.</p>
+          <R0Form
+            questions={questions}
+            initialEmail={user?.email ?? ""}
+            initialName={user?.name ?? ""}
+            onSubmit={handleSubmitR0}
+            loading={submitting}
+          />
         </div>
       </section>
     </PageWrapper>
