@@ -15,7 +15,7 @@ const Login = () => {
   const [error, setError] = useState("");
   const [signupSuccess, setSignupSuccess] = useState(false);
 
-  const { login, signUp, isAuthenticated, loading: authLoading } = useAuth();
+  const { login, signUp, user, isAuthenticated, loading: authLoading } = useAuth();
   const navigate = useNavigate();
 
   // Wait for user profile to load (role is set) before redirecting
