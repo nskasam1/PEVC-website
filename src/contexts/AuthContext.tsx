@@ -83,7 +83,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     // Initial session check
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session }, error }) => {
+      // If session is stale/invalid, clear it so users aren't stuck
+      if (error || !session) {
+        if (error) await supabase.auth.signOut();
+        setSession(null);
+        setUser(null);
+        setLoading(false);
+        return;
+      }
       setSession(session);
       if (session?.user) {
         const authUser = await fetchOrCreateProfile(
