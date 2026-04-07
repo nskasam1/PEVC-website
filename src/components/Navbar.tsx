@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Menu, X, Bell, LogIn, LogOut, User } from "lucide-react";
+import { Menu, X, LogIn, LogOut, User } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
 const baseLinks = [
@@ -11,18 +11,10 @@ const baseLinks = [
   { label: "Projects", path: "/projects" },
 ];
 
-const mockAlerts = [
-  "New applicant: Jordan Lee",
-  "Round 1 interview scheduled",
-  "Client requested update on Acme Corp",
-  "Task deadline approaching: Market Analysis",
-];
-
 const Navbar = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [bellOpen, setBellOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const { user, isAuthenticated, logout } = useAuth();
 
@@ -79,26 +71,6 @@ const Navbar = () => {
               {link.label}
             </Link>
           ))}
-
-          {/* Bell */}
-          <div className="relative">
-            <button onClick={() => setBellOpen(!bellOpen)} className="text-white/70 hover:text-primary transition-colors relative">
-              <Bell size={18} />
-              <span className="absolute -top-1 -right-1 w-1.5 h-1.5 bg-primary rounded-full" />
-            </button>
-            {bellOpen && (
-              <div className="absolute right-0 mt-2 w-72 bg-card border border-border rounded-lg shadow-2xl z-50 overflow-hidden">
-                <div className="px-4 py-2 border-b border-border">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">Notifications</p>
-                </div>
-                {mockAlerts.map((a, i) => (
-                  <div key={i} className="px-4 py-3 border-b border-border last:border-0 hover:bg-secondary/50 transition-colors">
-                    <p className="text-xs text-foreground">{a}</p>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
 
           <Link
             to="/pitch"
