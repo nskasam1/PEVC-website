@@ -84,7 +84,7 @@ const Navbar = () => {
               <Link to="/profile" className="text-white/70 hover:text-primary transition-colors">
                 <User size={18} />
               </Link>
-              <button onClick={() => { logout(); navigate("/"); }} className="text-white/70 hover:text-primary transition-colors">
+              <button onClick={async () => { await logout(); navigate("/"); }} className="text-white/70 hover:text-primary transition-colors">
                 <LogOut size={18} />
               </button>
             </div>
@@ -137,7 +137,7 @@ const Navbar = () => {
                 <>
                   <Link to="/profile" onClick={() => setMobileOpen(false)} className="text-sm text-muted-foreground">Profile</Link>
                   <Link to="/portal" onClick={() => setMobileOpen(false)} className="text-sm text-muted-foreground">Portal</Link>
-                  <button onClick={() => { logout(); setMobileOpen(false); navigate("/"); }} className="text-sm text-muted-foreground text-left">
+                  <button onClick={async () => { await logout(); setMobileOpen(false); navigate("/"); }} className="text-sm text-muted-foreground text-left">
                     Sign Out
                   </button>
                 </>

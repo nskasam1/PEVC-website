@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Navigate } from "react-router-dom";
 import PageWrapper from "@/components/PageWrapper";
@@ -10,6 +10,19 @@ const Profile = () => {
   const { user, isAuthenticated, loading: authLoading, updateProfile } = useAuth();
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [saved, setSaved] = useState<Record<string, boolean>>({});
+  const [name, setName] = useState("");
+  const [major, setMajor] = useState("");
+  const [gradYear, setGradYear] = useState("");
+  const [linkedinUrl, setLinkedinUrl] = useState("");
+
+  useEffect(() => {
+    if (user) {
+      setName(user.name ?? "");
+      setMajor(user.major ?? "");
+      setGradYear(user.gradYear ?? "");
+      setLinkedinUrl(user.linkedinUrl ?? "");
+    }
+  }, [user]);
 
   // Wait for auth to finish before redirecting — avoids false redirect on page load
   if (authLoading) return null;
@@ -91,7 +104,8 @@ const Profile = () => {
               <div className="flex items-center gap-2">
                 <input
                   type="text"
-                  defaultValue={user.name}
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
                   onBlur={(e) => handleBlurSave("name", e.target.value)}
                   className="flex-1 bg-transparent scarlet-input px-0 py-3 text-foreground text-sm placeholder:text-muted-foreground focus:outline-none"
                   placeholder="Your full name"
@@ -106,7 +120,8 @@ const Profile = () => {
               <div className="flex items-center gap-2">
                 <input
                   type="text"
-                  defaultValue={user.major ?? ""}
+                  value={major}
+                  onChange={(e) => setMajor(e.target.value)}
                   onBlur={(e) => handleBlurSave("major", e.target.value)}
                   className="flex-1 bg-transparent scarlet-input px-0 py-3 text-foreground text-sm placeholder:text-muted-foreground focus:outline-none"
                   placeholder="e.g. Finance"
@@ -121,7 +136,8 @@ const Profile = () => {
               <div className="flex items-center gap-2">
                 <input
                   type="text"
-                  defaultValue={user.gradYear ?? ""}
+                  value={gradYear}
+                  onChange={(e) => setGradYear(e.target.value)}
                   onBlur={(e) => handleBlurSave("gradYear", e.target.value)}
                   className="flex-1 bg-transparent scarlet-input px-0 py-3 text-foreground text-sm placeholder:text-muted-foreground focus:outline-none"
                   placeholder="e.g. 2026"
@@ -136,7 +152,8 @@ const Profile = () => {
               <div className="flex items-center gap-2">
                 <input
                   type="url"
-                  defaultValue={user.linkedinUrl ?? ""}
+                  value={linkedinUrl}
+                  onChange={(e) => setLinkedinUrl(e.target.value)}
                   onBlur={(e) => handleBlurSave("linkedinUrl", e.target.value)}
                   className="flex-1 bg-transparent scarlet-input px-0 py-3 text-foreground text-sm placeholder:text-muted-foreground focus:outline-none"
                   placeholder="https://linkedin.com/in/yourname"
