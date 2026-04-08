@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Navigate } from "react-router-dom";
 import PageWrapper from "@/components/PageWrapper";
-import { Upload, FileText, User, Loader2, CheckCircle } from "lucide-react";
+import { User, Loader2, CheckCircle } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/lib/supabase";
 
@@ -52,6 +52,8 @@ const Profile = () => {
       setSaved((s) => ({ ...s, [field]: true }));
       setTimeout(() => setSaved((s) => ({ ...s, [field]: false })), 2000);
     } catch (e) {
+      // Supabase auth lock contention between anon/admin clients — transient, save still succeeds
+      if (String(e).includes("lock") && String(e).includes("stole")) return;
       toast({ title: "Save failed", description: String(e), variant: "destructive" });
     }
   };

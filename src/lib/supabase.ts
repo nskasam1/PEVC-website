@@ -24,5 +24,5 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
  * In production this should live in a Supabase Edge Function, not the browser.
  */
 export const supabaseAdmin = createClient<Database>(supabaseUrl, supabaseServiceRoleKey, {
-  auth: { autoRefreshToken: false, persistSession: false },
+  auth: { autoRefreshToken: false, persistSession: false, storageKey: "sb-admin-token" },
 });
