@@ -141,7 +141,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const logout = async () => {
-    await supabase.auth.signOut();
+    try {
+      await supabase.auth.signOut();
+    } catch (_) {
+      // ignore lock errors — clear state regardless
+    }
+    // Clear all supabase auth keys from localStorage to force session removal
+    Object.keys(localStorage)
+      .filter((k) => k.startsWith("sb-") && k.includes("auth"))
+      .forEach((k) => localStorage.removeItem(k));
     setUser(null);
     setSession(null);
   };
