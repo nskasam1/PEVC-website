@@ -334,6 +334,15 @@ Keys that no longer exist (removed with Supabase migration):
 
 ## Changelog
 
+### 2026-04-08
+- **Supabase API keys rotated** — migrated from legacy JWT keys to new `sb_publishable_*` / `sb_secret_*` format. `.env` updated locally; Vercel env vars must be updated manually before each deploy.
+- **`@supabase/supabase-js` updated** — bumped from 2.100.1 → 2.102.1 to support new key format.
+- **RLS infinite recursion fixed** — `profiles` table had a broken RLS policy causing infinite recursion. Fixed by dropping all policies and recreating simple `auth.uid() = id` policies for SELECT, INSERT, UPDATE. Run the SQL in the Supabase SQL editor if setting up fresh.
+- **Profiles seeded** — all 4 existing auth users (`yuviatre@gmail.com`, `nikhilsaikasam@gmail.com`, `nkasam06@gmail.com`, `nikhilkasam1@gmail.com`) inserted into `profiles` table with `admin` role via service role client.
+- **`Profile.tsx` loading fix** — changed auth guard to wait for both `authLoading` and `user` before redirecting, preventing blank screen on profile page when session restores async.
+- **`yuvi` branch merged into `main`** — fast-forward merge, no conflicts.
+- **Known gotcha: stale localStorage** — if auth appears broken after key rotation, run `localStorage.clear()` in the browser console and hard refresh.
+
 ### 2026-04-07
 - **Supabase integration added** — replaced mock localStorage auth with real Supabase auth. `AuthContext` now uses `supabase.auth`, persists sessions, and fetches profile from `profiles` table. All 5 mock users removed.
 - **New pages added** — `AdminMembers.tsx`, `AdminUsers.tsx`, `Dues.tsx`, `AuthCallback.tsx`, `NotFound.tsx` (now 21 routes, was 16).

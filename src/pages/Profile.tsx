@@ -24,8 +24,8 @@ const Profile = () => {
     }
   }, [user]);
 
-  // Wait for auth to finish before redirecting — avoids false redirect on page load
-  if (authLoading) return null;
+  // Wait for both auth and profile to finish loading before redirecting
+  if (authLoading || (isAuthenticated && !user)) return null;
   if (!isAuthenticated || !user) return <Navigate to="/login" replace />;
 
   const handleAvatarUpload = async (file: File) => {
