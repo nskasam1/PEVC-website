@@ -51,11 +51,7 @@ const Navbar = () => {
     <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${navBg}`}>
       <div className="container mx-auto flex items-center justify-between h-16 px-6">
         <Link to="/" className="flex items-center gap-2">
-          <img
-            src="/images/PEVCTransparent.png"
-            alt="PEVC Logo"
-            className="h-16 md:h-20 transition-all duration-300"
-          />
+          <span className="text-lg font-extrabold tracking-[0.2em] text-white uppercase font-syne">PEVC</span>
         </Link>
 
         {/* Desktop */}
