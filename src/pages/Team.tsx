@@ -2,22 +2,28 @@ import { motion } from "framer-motion";
 import PageWrapper from "../components/PageWrapper";
 import TeamSection from "../components/ui/team-section";
 
+// Ordered by hierarchy: President → CIO(s) → IVP → EVP
 const executives = [
-  { name: "Alex Rivera", role: "Managing Partner", img: "" },
+  { name: "Alex Rivera", role: "President", img: "" },
   { name: "Sarah Chen", role: "Chief Investment Officer", img: "" },
-  { name: "Marcus Johnson", role: "Head of Operations", img: "" },
-  { name: "Emily Park", role: "Director of Strategy", img: "" },
+  { name: "Marcus Johnson", role: "Internal Vice President", img: "" },
+  { name: "Emily Park", role: "External Vice President", img: "" },
 ];
 
+// Alphabetical by last name
+const pms = [
+  { name: "Jordan Lee", role: "Project Manager", project: "NeuralFlow Due Diligence" },
+  { name: "Priya Sharma", role: "Project Manager", project: "PayGrid Market Analysis" },
+  { name: "David Kim", role: "Project Manager", project: "HealthSync Evaluation" },
+];
+
+// All "Analyst", alphabetical by last name
 const analysts = [
-  { name: "Jordan Lee", role: "Senior Analyst" },
-  { name: "Priya Sharma", role: "Senior Analyst" },
-  { name: "David Kim", role: "Analyst" },
-  { name: "Olivia Martinez", role: "Analyst" },
-  { name: "Noah Williams", role: "Analyst" },
-  { name: "Sophia Brown", role: "Associate" },
-  { name: "Liam Davis", role: "Associate" },
-  { name: "Emma Wilson", role: "Associate" },
+  { name: "Sophia Brown", role: "Analyst", project: "NeuralFlow Due Diligence" },
+  { name: "Liam Davis", role: "Analyst", project: "PayGrid Market Analysis" },
+  { name: "Olivia Martinez", role: "Analyst", project: "HealthSync Evaluation" },
+  { name: "Noah Williams", role: "Analyst", project: "NeuralFlow Due Diligence" },
+  { name: "Emma Wilson", role: "Analyst", project: "PayGrid Market Analysis" },
 ];
 
 const Team = () => {
@@ -36,7 +42,7 @@ const Team = () => {
             Driven students with a passion for venture capital and entrepreneurship.
           </p>
 
-          <TeamSection executives={executives} analysts={analysts} />
+          <TeamSection executives={executives} pms={pms} analysts={analysts} />
         </section>
       </div>
     </PageWrapper>

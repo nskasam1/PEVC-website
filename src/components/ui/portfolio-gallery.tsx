@@ -1,14 +1,21 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowUpRight, Plus } from "lucide-react";
+import { ArrowUpRight, Plus, ExternalLink } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useTilt } from "@/hooks/use-tilt";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface Company {
   name: string;
   category: string;
   description: string;
   img?: string;
+  url?: string;
 }
 
 interface PortfolioGalleryProps {
@@ -28,9 +35,11 @@ const categoryAccent: Record<string, string> = {
 function CollageCard({
   company,
   featured,
+  onSelect,
 }: {
   company: Company;
   featured: boolean;
+  onSelect: (company: Company) => void;
 }) {
   const { motionStyle, onMouseMove, onMouseLeave } = useTilt(featured ? 4 : 8);
   const accent = categoryAccent[company.category] ?? "rgba(30,30,30,0.4)";
@@ -58,7 +67,11 @@ function CollageCard({
       >
         {/* Card shell */}
         <div
-          className="editorial-card group relative overflow-hidden flex flex-col border border-border/40 hover:border-primary/25 transition-all duration-500"
+          role="button"
+          tabIndex={0}
+          onClick={() => onSelect(company)}
+          onKeyDown={(e) => e.key === "Enter" && onSelect(company)}
+          className="editorial-card group relative overflow-hidden flex flex-col border border-border/40 hover:border-primary/25 transition-all duration-500 cursor-pointer"
           style={{
             minHeight: featured ? "340px" : "260px",
             background: `linear-gradient(145deg, ${accent} 0%, hsl(0 0% 8%) 55%)`,
@@ -125,6 +138,8 @@ function CollageCard({
 
 const PortfolioGallery = ({ companies, categories }: PortfolioGalleryProps) => {
   const [filter, setFilter] = useState("All");
+  const [selected, setSelected] = useState<Company | null>(null);
+
   const filtered =
     filter === "All" ? companies : companies.filter((c) => c.category === filter);
 
@@ -155,6 +170,7 @@ const PortfolioGallery = ({ companies, categories }: PortfolioGalleryProps) => {
               key={company.name}
               company={company}
               featured={idx === 0 && filtered.length >= 3}
+              onSelect={setSelected}
             />
           ))}
         </AnimatePresence>
@@ -181,6 +197,45 @@ const PortfolioGallery = ({ companies, categories }: PortfolioGalleryProps) => {
           </Link>
         </motion.div>
       </div>
+
+      {/* Company detail modal */}
+      <Dialog open={!!selected} onOpenChange={() => setSelected(null)}>
+        <DialogContent className="bg-card border border-border/60 max-w-md">
+          {selected && (
+            <>
+              <DialogHeader>
+                <div className="flex items-center gap-3 mb-1">
+                  <span className="text-[9px] font-semibold uppercase tracking-[0.3em] border border-primary/30 text-primary px-2 py-0.5 bg-black/30">
+                    {selected.category}
+                  </span>
+                </div>
+                <DialogTitle className="text-2xl font-bold tracking-tight text-foreground">
+                  {selected.name}
+                </DialogTitle>
+              </DialogHeader>
+              <p className="text-sm text-muted-foreground leading-relaxed font-dm mt-2">
+                {selected.description}
+              </p>
+              <div className="mt-6 pt-4 border-t border-border/40">
+                {selected.url ? (
+                  <a
+                    href={selected.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 text-xs font-semibold text-primary uppercase tracking-[0.15em] hover:gap-3 transition-all duration-300"
+                  >
+                    Visit Website <ExternalLink size={12} />
+                  </a>
+                ) : (
+                  <span className="text-xs text-muted-foreground/40 uppercase tracking-[0.15em] font-dm">
+                    Website coming soon
+                  </span>
+                )}
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

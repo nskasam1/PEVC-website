@@ -8,9 +8,9 @@ import { useTilt } from "../hooks/use-tilt";
 import { ArrowRight, TrendingUp, Users, Handshake, GraduationCap, Target, type LucideIcon } from "lucide-react";
 
 const stats = [
-  { label: "Established", value: 2021, suffix: "" },
+  { label: "Established", value: 2019, suffix: "" },
   { label: "Members", value: 80, suffix: "+" },
-  { label: "Portfolio Companies", value: 15, suffix: "+" },
+  { label: "Projects", value: 15, suffix: "+" },
 ];
 
 const pillars = [
@@ -157,16 +157,16 @@ const Index = () => {
               className="flex flex-col sm:flex-row gap-4 justify-center"
             >
               <Link
-                to="/pitch"
-                className="bg-primary text-primary-foreground px-8 py-3 font-semibold text-xs tracking-[0.15em] uppercase transition-all hover:scale-[1.02] hover:shadow-lg hover:shadow-primary/20"
+                to="/apply"
+                className="bg-primary text-primary-foreground pl-[calc(2rem+0.15em)] pr-8 py-3 font-semibold text-xs tracking-[0.15em] uppercase transition-all hover:scale-[1.02] hover:shadow-lg hover:shadow-primary/20"
               >
-                Apply for Funding
+                Apply
               </Link>
               <Link
-                to="/portfolio"
-                className="border border-white/20 text-white px-8 py-3 font-semibold text-xs tracking-[0.15em] uppercase transition-all hover:border-white/40 hover:bg-white/5 flex items-center justify-center gap-2"
+                to="/team"
+                className="border border-white/20 text-white pl-[calc(2rem+0.15em)] pr-8 py-3 font-semibold text-xs tracking-[0.15em] uppercase transition-all hover:border-white/40 hover:bg-white/5 flex items-center justify-center gap-2"
               >
-                View Portfolio <ArrowRight size={14} />
+                Meet the Club <ArrowRight size={14} />
               </Link>
             </motion.div>
 
@@ -175,18 +175,20 @@ const Index = () => {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ duration: 0.6, delay: 0.55 }}
-              className="grid grid-cols-3 gap-8 max-w-lg mx-auto mt-20"
+              className="mt-20 max-w-lg mx-auto bg-white/5 backdrop-blur-sm border border-white/10 px-8 py-6"
             >
-              {stats.map((stat) => (
-                <div key={stat.label} className="text-center">
-                  <div className="text-3xl md:text-4xl font-extrabold text-white tracking-tight">
-                    <CountUp end={stat.value} suffix={stat.suffix} />
+              <div className="grid grid-cols-3 gap-8">
+                {stats.map((stat) => (
+                  <div key={stat.label} className="text-center">
+                    <div className="text-3xl md:text-4xl font-extrabold text-white tracking-tight">
+                      <CountUp end={stat.value} suffix={stat.suffix} />
+                    </div>
+                    <div className="text-xs md:text-sm text-white/50 mt-1 uppercase tracking-[0.2em] font-dm">
+                      {stat.label}
+                    </div>
                   </div>
-                  <div className="text-xs md:text-sm text-white/50 mt-1 uppercase tracking-[0.2em] font-dm">
-                    {stat.label}
-                  </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </motion.div>
           </div>
         </section>
@@ -250,10 +252,10 @@ const Index = () => {
                 viewport={{ once: true }}
                 className="md:w-56 flex-shrink-0"
               >
-                <div className="text-[10px] tracking-[0.35em] text-primary font-semibold uppercase mb-3">Why Us</div>
+                <div className="text-[10px] tracking-[0.35em] text-primary font-semibold uppercase mb-3">Why Join</div>
                 <h2 className="text-3xl md:text-4xl font-extrabold text-foreground leading-tight">
-                  Why Founders<br />
-                  <span className="text-primary">Partner With Us</span>
+                  Why Students<br />
+                  <span className="text-primary">Choose PEVC</span>
                 </h2>
               </motion.div>
 
