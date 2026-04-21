@@ -8,7 +8,6 @@ const baseLinks = [
   { label: "Home", path: "/" },
   { label: "Portfolio", path: "/portfolio" },
   { label: "Team", path: "/team" },
-  { label: "Projects", path: "/projects" },
 ];
 
 const Navbar = () => {

@@ -9,7 +9,6 @@ import Navbar from "./components/Navbar";
 import Index from "./pages/Index";
 import Portfolio from "./pages/Portfolio";
 import Team from "./pages/Team";
-import Projects from "./pages/Projects";
 import PitchUs from "./pages/PitchUs";
 import Login from "./pages/Login";
 import Profile from "./pages/Profile";
@@ -43,7 +42,6 @@ const App = () => (
                 <Route path="/" element={<Index />} />
                 <Route path="/portfolio" element={<Portfolio />} />
                 <Route path="/team" element={<Team />} />
-                <Route path="/projects" element={<Projects />} />
                 <Route path="/pitch" element={<PitchUs />} />
                 <Route path="/login" element={<Login />} />
                 <Route path="/profile" element={<Profile />} />
